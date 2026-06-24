@@ -1,0 +1,38 @@
+# Build outputs
+bin/
+obj/
+out/
+
+# Visual Studio / Rider
+.vs/
+*.user
+*.suo
+*.userprefs
+*.sln.docstates
+
+# .NET
+*.dll
+*.exe
+*.pdb
+*.cache
+*.log
+*.nupkg
+*.snupkg
+
+# Revit-specific: versioned API DLLs must not be committed
+RevitAPI*.dll
+RevitAPIUI*.dll
+*.addin
+
+# opencode
+.opencode/
+opencode.json
+
+# OS
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Misc
+*.tmp
+*.temp
