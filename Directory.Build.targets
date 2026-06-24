@@ -1,0 +1,56 @@
+<Project>
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0-windows'">
+    <DefineConstants>$(DefineConstants);NET8_0;REVIT2021_OR_GREATER;REVIT2022_OR_GREATER;REVIT2023_OR_GREATER;REVIT2024_OR_GREATER;REVIT2025_OR_GREATER</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net48' And '$(RevitVersion)' == '2024'">
+    <DefineConstants>$(DefineConstants);REVIT2021_OR_GREATER;REVIT2022_OR_GREATER;REVIT2023_OR_GREATER;REVIT2024_OR_GREATER</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net48' And '$(RevitVersion)' == '2023'">
+    <DefineConstants>$(DefineConstants);REVIT2021_OR_GREATER;REVIT2022_OR_GREATER;REVIT2023_OR_GREATER</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net48' And '$(RevitVersion)' == '2022'">
+    <DefineConstants>$(DefineConstants);REVIT2021_OR_GREATER;REVIT2022_OR_GREATER</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net48' And '$(RevitVersion)' == '2021'">
+    <DefineConstants>$(DefineConstants);REVIT2021_OR_GREATER</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48' And '$(RevitVersion)' != ''">
+    <PackageReference Update="Nice3point.Revit.Api.RevitAPI" Version="$(RevitVersion).*" />
+    <PackageReference Update="Nice3point.Revit.Api.RevitAPIUI" Version="$(RevitVersion).*" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48' And '$(RevitVersion)' == ''">
+    <PackageReference Update="Nice3point.Revit.Api.RevitAPI" Version="2021.*" />
+    <PackageReference Update="Nice3point.Revit.Api.RevitAPIUI" Version="2021.*" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0-windows' And '$(RevitVersion)' != ''">
+    <PackageReference Update="Nice3point.Revit.Api.RevitAPI" Version="$(RevitVersion).*" />
+    <PackageReference Update="Nice3point.Revit.Api.RevitAPIUI" Version="$(RevitVersion).*" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0-windows' And '$(RevitVersion)' == ''">
+    <PackageReference Update="Nice3point.Revit.Api.RevitAPI" Version="2025.*" />
+    <PackageReference Update="Nice3point.Revit.Api.RevitAPIUI" Version="2025.*" />
+  </ItemGroup>
+
+  <Target Name="ValidateRevitVersion" BeforeTargets="PrepareForBuild" Condition="'$(TargetFramework)' == 'net48'">
+    <Error Condition="'$(RevitVersion)' == ''"
+           Text="RevitVersion не указан. Используйте конфигурацию Debug.R21/.../Debug.R25 или передайте -p:RevitVersion=2021 (2022, 2023, 2024)." />
+    <Error Condition="'$(RevitVersion)' != '2021' And '$(RevitVersion)' != '2022' And '$(RevitVersion)' != '2023' And '$(RevitVersion)' != '2024'"
+           Text="Неизвестная версия RevitVersion=$(RevitVersion). Поддерживаемые значения для net48: 2021, 2022, 2023, 2024." />
+  </Target>
+
+  <Target Name="CopyAddinManifest" AfterTargets="Build" Condition="'$(CopyAddins)' != 'false' And '$(MSBuildProjectName)' == 'AssemblingManager.Revit'">
+    <PropertyGroup>
+      <AddinSource>$(MSBuildThisFileDirectory)addins\$(RevitVersion)\AssemblingManager.addin</AddinSource>
+      <AddinDestination>$(OutputPath)AssemblingManager.addin</AddinDestination>
+    </PropertyGroup>
+    <Copy SourceFiles="$(AddinSource)" DestinationFiles="$(AddinDestination)" SkipUnchangedFiles="true" />
+  </Target>
+</Project>
