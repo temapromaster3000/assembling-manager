@@ -26,7 +26,8 @@
 - Каждая версия плагина поставляется со своим `.addin` манифестом (имя/путь сборки должны совпадать).
 
 ## Developer workflow
-- Build: `dotnet build` или `msbuild /p:Configuration=Release /p:RevitVersion=2025`.
+- Build: пользователь собирает и развёртывает плагин самостоятельно через `build-and-deploy.bat` в корне репозитория. Агент НЕ должен запускать этот BAT-файл и не должен копировать файлы в `%APPDATA%\Autodesk\Revit\Addins\` без явного запроса.
+- Для проверки компиляции агент может использовать `dotnet build` / `msbuild` с нужной конфигурацией (`Debug.R21`…`Debug.R25`).
 - Debug: скопировать сборку и `.addin` в `%APPDATA%\Autodesk\Revit\Addins\<Year>\` и запускать Revit с отладчиком (Attach to process).
 - Нет автоматических юнит-тестов без установленного Revit; предпочитай интеграционные проверки через загрузку плагина в Revit.
 

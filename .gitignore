@@ -22,7 +22,12 @@ out/
 # Revit-specific: versioned API DLLs must not be committed
 RevitAPI*.dll
 RevitAPIUI*.dll
-*.addin
+/bin/*.addin
+/obj/*.addin
+/*.addin
+
+# But keep source manifests
+!addins/**/*.addin
 
 # opencode
 .opencode/
