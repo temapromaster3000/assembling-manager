@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<RevitAddIns>
+  <AddIn Type="Application">
+    <Name>Assembling Manager</Name>
+    <Assembly>AssemblingManager.dll</Assembly>
+    <AddInId>01958C2F-6E03-4812-AEC1-B3362506B1CC</AddInId>
+    <FullClassName>AssemblingManager.Revit.App</FullClassName>
+    <VendorId>YOURCOMPANY</VendorId>
+    <VendorDescription>Your company description</VendorDescription>
+  </AddIn>
+</RevitAddIns>
+

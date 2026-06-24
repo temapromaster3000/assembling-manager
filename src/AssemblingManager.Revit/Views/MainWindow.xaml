@@ -1,0 +1,42 @@
+<Window x:Class="AssemblingManager.Revit.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Assembling Manager"
+        SizeToContent="WidthAndHeight"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen">
+    <StackPanel Margin="20">
+        <TextBlock Text="Выберите виды для создания:"
+                   FontWeight="Bold"
+                   Margin="0,0,0,10" />
+
+        <CheckBox x:Name="CheckBoxPlan"
+                   Content="План"
+                   Margin="0,5" />
+
+        <CheckBox x:Name="CheckBoxSection"
+                   Content="Разрез"
+                   Margin="0,5" />
+
+        <CheckBox x:Name="CheckBox3D"
+                   Content="3D вид"
+                   Margin="0,5" />
+
+        <StackPanel Orientation="Horizontal"
+                     HorizontalAlignment="Right"
+                     Margin="0,15,0,0">
+            <Button x:Name="ButtonCancel"
+                   Content="Отмена"
+                   Width="80"
+                   Margin="0,0,10,0"
+                   IsCancel="True"
+                   Click="ButtonCancel_Click" />
+
+            <Button x:Name="ButtonCreate"
+                   Content="Сформировать"
+                   Width="100"
+                   IsDefault="True"
+                   Click="ButtonCreate_Click" />
+        </StackPanel>
+    </StackPanel>
+</Window>

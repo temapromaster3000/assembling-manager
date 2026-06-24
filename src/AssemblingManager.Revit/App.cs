@@ -1,0 +1,44 @@
+using System;
+using System.Reflection;
+using Autodesk.Revit.UI;
+using AssemblingManager.Core.Common;
+
+namespace AssemblingManager.Revit
+{
+    public class App : IExternalApplication
+    {
+        public Result OnStartup(UIControlledApplication application)
+        {
+            try
+            {
+                string tabName = Constants.PluginName;
+                application.CreateRibbonTab(tabName);
+
+                RibbonPanel panel = application.CreateRibbonPanel(tabName, "Виды сборок");
+
+                string assemblyPath = Assembly.GetExecutingAssembly().Location;
+
+                PushButtonData buttonData = new PushButtonData(
+                    "CreateAssemblyViews",
+                    "Сформировать\nвиды",
+                    assemblyPath,
+                    "AssemblingManager.Revit.Commands.CreateAssemblyViewsCommand");
+
+                PushButton button = panel.AddItem(buttonData) as PushButton;
+                button.ToolTip = "Создать планы, разрезы и 3D виды для всех сборок в модели.";
+
+                return Result.Succeeded;
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show(Constants.PluginName, $"Ошибка при создании вкладки: {ex.Message}");
+                return Result.Failed;
+            }
+        }
+
+        public Result OnShutdown(UIControlledApplication application)
+        {
+            return Result.Succeeded;
+        }
+    }
+}
