@@ -35,6 +35,8 @@ namespace AssemblingManager.Revit.Services
             }
         }
 
+        private const double MillimetersToFeet = 1.0 / 304.8;
+
         public ViewPlan CreatePlanView(Document doc, string assemblyName, BoundingBoxXYZ bbox, ElementId levelId)
         {
             ElementId viewFamilyTypeId = GetViewFamilyTypeId(doc, ViewFamily.FloorPlan);
@@ -44,12 +46,54 @@ namespace AssemblingManager.Revit.Services
             viewPlan.CropBoxActive = true;
             viewPlan.CropBoxVisible = true;
 
+            double minZMm = bbox.Min.Z / MillimetersToFeet;
+            double maxZMm = bbox.Max.Z / MillimetersToFeet;
+
+            double roundedMinZMm = RoundToHundred(minZMm, false);
+            double roundedMaxZMm = RoundToHundred(maxZMm, true);
+
+            double cropOffsetMm = 500;
             BoundingBoxXYZ cropBox = new BoundingBoxXYZ();
-            cropBox.Min = new XYZ(bbox.Min.X, bbox.Min.Y, -1000);
-            cropBox.Max = new XYZ(bbox.Max.X, bbox.Max.Y, 1000);
+            cropBox.Min = new XYZ(
+                bbox.Min.X - cropOffsetMm * MillimetersToFeet,
+                bbox.Min.Y - cropOffsetMm * MillimetersToFeet,
+                (roundedMinZMm - cropOffsetMm) * MillimetersToFeet);
+            cropBox.Max = new XYZ(
+                bbox.Max.X + cropOffsetMm * MillimetersToFeet,
+                bbox.Max.Y + cropOffsetMm * MillimetersToFeet,
+                (roundedMaxZMm + cropOffsetMm) * MillimetersToFeet);
             viewPlan.CropBox = cropBox;
 
+            Level level = doc.GetElement(levelId) as Level;
+            double levelElevationMm = (level?.Elevation ?? 0.0) / MillimetersToFeet;
+
+            double viewRangeOffsetMm = 5000;
+            double cutPlaneElevationMm = (roundedMinZMm + roundedMaxZMm) / 2.0;
+            PlanViewRange planViewRange = viewPlan.GetViewRange();
+
+            planViewRange.SetLevelId(PlanViewPlane.TopClipPlane, levelId);
+            planViewRange.SetLevelId(PlanViewPlane.CutPlane, levelId);
+            planViewRange.SetLevelId(PlanViewPlane.BottomClipPlane, levelId);
+            planViewRange.SetLevelId(PlanViewPlane.ViewDepthPlane, levelId);
+
+            planViewRange.SetOffset(PlanViewPlane.TopClipPlane, (roundedMaxZMm + viewRangeOffsetMm - levelElevationMm) * MillimetersToFeet);
+            planViewRange.SetOffset(PlanViewPlane.CutPlane, (cutPlaneElevationMm - levelElevationMm) * MillimetersToFeet);
+            planViewRange.SetOffset(PlanViewPlane.BottomClipPlane, (roundedMinZMm - viewRangeOffsetMm - levelElevationMm) * MillimetersToFeet);
+            planViewRange.SetOffset(PlanViewPlane.ViewDepthPlane, (roundedMinZMm - viewRangeOffsetMm - levelElevationMm) * MillimetersToFeet);
+
+            viewPlan.SetViewRange(planViewRange);
+
             return viewPlan;
+        }
+
+        private static double RoundToHundred(double valueMm, bool roundUp)
+        {
+            const double factor = 100.0;
+            if (roundUp)
+            {
+                return Math.Ceiling(valueMm / factor) * factor;
+            }
+            return Math.Floor(valueMm / factor) * factor;
         }
 
         public ViewSection CreateSectionView1(Document doc, string assemblyName, BoundingBoxXYZ bbox)

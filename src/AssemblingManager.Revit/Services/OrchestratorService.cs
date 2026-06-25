@@ -71,11 +71,8 @@ namespace AssemblingManager.Revit.Services
 
                 if (options.CreatePlan)
                 {
-                    ElementId levelId = _assemblyService.GetNearestLevelId(doc, bbox.Min.Z);
-                    if (levelId != ElementId.InvalidElementId)
-                    {
-                        views.Add(_viewService.CreatePlanView(doc, assembly.Name, bbox, levelId));
-                    }
+                    ElementId levelId = _assemblyService.GetOrCreateZeroLevelId(doc);
+                    views.Add(_viewService.CreatePlanView(doc, assembly.Name, bbox, levelId));
                 }
 
                 if (options.CreateSection)

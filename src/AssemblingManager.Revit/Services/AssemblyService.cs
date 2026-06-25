@@ -82,15 +82,38 @@ namespace AssemblingManager.Revit.Services
             return result;
         }
 
-        public ElementId GetNearestLevelId(Document doc, double elevation)
+        private const string ZeroLevelName = "AM_Отметка +0.000";
+        private const double ZeroLevelElevation = 0.0;
+        private const double ElevationTolerance = 1e-6;
+
+        public ElementId GetOrCreateZeroLevelId(Document doc)
         {
-            return new FilteredElementCollector(doc)
+            List<Level> levels = new FilteredElementCollector(doc)
                 .OfClass(typeof(Level))
                 .Cast<Level>()
-                .Where(l => l.Elevation <= elevation)
-                .OrderByDescending(l => l.Elevation)
-                .Select(l => l.Id)
-                .FirstOrDefault();
+                .ToList();
+
+            Level zeroLevel = levels
+                .FirstOrDefault(l => Math.Abs(l.Elevation - ZeroLevelElevation) < ElevationTolerance);
+
+            if (zeroLevel != null)
+            {
+                return zeroLevel.Id;
+            }
+
+            return CreateZeroLevel(doc);
+        }
+
+        private static ElementId CreateZeroLevel(Document doc)
+        {
+            Level level = Level.Create(doc, ZeroLevelElevation);
+            if (level == null)
+            {
+                throw new InvalidOperationException("Не удалось создать уровень на отметке 0.");
+            }
+
+            level.Name = ZeroLevelName;
+            return level.Id;
         }
     }
 }
