@@ -19,4 +19,9 @@
   <ItemGroup>
     <ProjectReference Include="..\AssemblingManager.Core\AssemblingManager.Core.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\Icon16.png" />
+    <EmbeddedResource Include="Resources\Icon32.png" />
+  </ItemGroup>
 </Project>
