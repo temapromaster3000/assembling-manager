@@ -61,7 +61,7 @@ namespace AssemblingManager.Revit.Services
 
                 _viewService.DeleteExistingViews(doc, assembly.Name);
 
-                BoundingBoxXYZ bbox = _assemblyService.GetElementsBoundingBox(doc, elementIds);
+                BoundingBoxXYZ bbox = _assemblyService.GetElementsBoundingBox(doc, elementIds, offset: 0.0);
                 if (bbox == null)
                 {
                     continue;
@@ -75,10 +75,24 @@ namespace AssemblingManager.Revit.Services
                     views.Add(_viewService.CreatePlanView(doc, assembly.Name, bbox, levelId));
                 }
 
-                if (options.CreateSection)
+                if (options.CreateFrontView)
                 {
-                    views.Add(_viewService.CreateSectionView1(doc, assembly.Name, bbox));
-                    views.Add(_viewService.CreateSectionView2(doc, assembly.Name, bbox));
+                    views.Add(_viewService.CreateFrontView(doc, assembly.Name, bbox));
+                }
+
+                if (options.CreateBackView)
+                {
+                    views.Add(_viewService.CreateBackView(doc, assembly.Name, bbox));
+                }
+
+                if (options.CreateRightView)
+                {
+                    views.Add(_viewService.CreateRightView(doc, assembly.Name, bbox));
+                }
+
+                if (options.CreateLeftView)
+                {
+                    views.Add(_viewService.CreateLeftView(doc, assembly.Name, bbox));
                 }
 
                 if (options.Create3D)
