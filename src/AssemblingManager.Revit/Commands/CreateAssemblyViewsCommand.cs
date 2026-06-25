@@ -18,7 +18,11 @@ namespace AssemblingManager.Revit.Commands
             UIDocument uiDocument = uiApplication.ActiveUIDocument;
             Document document = uiDocument.Document;
 
-            MainWindow window = new MainWindow();
+            int assemblyCount = new FilteredElementCollector(document)
+                .OfClass(typeof(AssemblyInstance))
+                .GetElementCount();
+
+            MainWindow window = new MainWindow(assemblyCount);
             bool? dialogResult = window.ShowDialog();
 
             if (dialogResult != true)

@@ -5,50 +5,98 @@
         SizeToContent="WidthAndHeight"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen">
-    <StackPanel Margin="20">
-        <TextBlock Text="Выберите виды для создания:"
-                   FontWeight="Bold"
-                   Margin="0,0,0,10" />
+    <Grid Margin="20">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
 
-        <CheckBox x:Name="CheckBoxPlan"
-                   Content="План"
-                   Margin="0,5" />
+        <StackPanel Grid.Column="0">
+            <TextBlock Text="Выберите виды для создания:"
+                       FontWeight="Bold"
+                       Margin="0,0,0,10" />
 
-        <CheckBox x:Name="CheckBoxFrontView"
-                   Content="Вид спереди"
-                   Margin="0,5" />
+            <CheckBox x:Name="CheckBoxPlan"
+                      Content="План"
+                      Margin="0,5"
+                      Checked="IndividualCheckBox_CheckedChanged"
+                      Unchecked="IndividualCheckBox_CheckedChanged" />
 
-        <CheckBox x:Name="CheckBoxBackView"
-                   Content="Вид сзади"
-                   Margin="0,5" />
+            <Expander x:Name="ExpanderSections"
+                      Margin="0,5"
+                      IsExpanded="False"
+                      HorizontalAlignment="Stretch"
+                      VerticalContentAlignment="Center"
+                      Padding="0">
+                <Expander.Header>
+                    <CheckBox x:Name="CheckBoxSections"
+                              Content="Разрезы"
+                              IsThreeState="True"
+                              Click="CheckBoxSections_Click" />
+                </Expander.Header>
 
-        <CheckBox x:Name="CheckBoxRightView"
-                   Content="Вид справа"
-                   Margin="0,5" />
+                <StackPanel Margin="20,5,0,0">
+                    <CheckBox x:Name="CheckBoxFrontView"
+                              Content="Вид спереди"
+                              Margin="0,3"
+                              Checked="IndividualCheckBox_CheckedChanged"
+                              Unchecked="IndividualCheckBox_CheckedChanged" />
 
-        <CheckBox x:Name="CheckBoxLeftView"
-                   Content="Вид слева"
-                   Margin="0,5" />
+                    <CheckBox x:Name="CheckBoxBackView"
+                              Content="Вид сзади"
+                              Margin="0,3"
+                              Checked="IndividualCheckBox_CheckedChanged"
+                              Unchecked="IndividualCheckBox_CheckedChanged" />
 
-        <CheckBox x:Name="CheckBox3D"
-                   Content="3D вид"
-                   Margin="0,5" />
+                    <CheckBox x:Name="CheckBoxRightView"
+                              Content="Вид справа"
+                              Margin="0,3"
+                              Checked="IndividualCheckBox_CheckedChanged"
+                              Unchecked="IndividualCheckBox_CheckedChanged" />
 
-        <StackPanel Orientation="Horizontal"
-                     HorizontalAlignment="Right"
-                     Margin="0,15,0,0">
-            <Button x:Name="ButtonCancel"
-                   Content="Отмена"
-                   Width="80"
-                   Margin="0,0,10,0"
-                   IsCancel="True"
-                   Click="ButtonCancel_Click" />
+                    <CheckBox x:Name="CheckBoxLeftView"
+                              Content="Вид слева"
+                              Margin="0,3"
+                              Checked="IndividualCheckBox_CheckedChanged"
+                              Unchecked="IndividualCheckBox_CheckedChanged" />
+                </StackPanel>
+            </Expander>
 
-            <Button x:Name="ButtonCreate"
-                   Content="Сформировать"
-                   Width="100"
-                   IsDefault="True"
-                   Click="ButtonCreate_Click" />
+            <CheckBox x:Name="CheckBox3D"
+                      Content="3D вид"
+                      Margin="0,5"
+                      Checked="IndividualCheckBox_CheckedChanged"
+                      Unchecked="IndividualCheckBox_CheckedChanged" />
+
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Margin="0,15,0,0">
+                
+                <Button x:Name="ButtonCancel"
+                        Content="Отмена"
+                        Width="80"
+                        Margin="0,0,10,0"
+                        IsCancel="True"
+                        Click="ButtonCancel_Click" />
+
+                <Button x:Name="ButtonCreate"
+                        Content="Сформировать"
+                        Width="100"
+                        IsDefault="True"
+                        Click="ButtonCreate_Click" />
+            </StackPanel>
         </StackPanel>
-    </StackPanel>
+
+        <StackPanel Grid.Column="1"
+                    Margin="20,0,0,0"
+                    VerticalAlignment="Top">
+            <TextBlock x:Name="TextBlockAssemblyCount"
+                       Text="Сборок в проекте: 0"
+                       Margin="0,0,0,5" />
+
+            <TextBlock x:Name="TextBlockViewCount"
+                       Text="Будет создано видов: 0"
+                       FontWeight="Bold" />
+        </StackPanel>
+    </Grid>
 </Window>
