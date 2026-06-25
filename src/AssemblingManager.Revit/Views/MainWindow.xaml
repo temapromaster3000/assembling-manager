@@ -14,8 +14,20 @@
                    Content="План"
                    Margin="0,5" />
 
-        <CheckBox x:Name="CheckBoxSection"
-                   Content="Разрез"
+        <CheckBox x:Name="CheckBoxFrontView"
+                   Content="Вид спереди"
+                   Margin="0,5" />
+
+        <CheckBox x:Name="CheckBoxBackView"
+                   Content="Вид сзади"
+                   Margin="0,5" />
+
+        <CheckBox x:Name="CheckBoxRightView"
+                   Content="Вид справа"
+                   Margin="0,5" />
+
+        <CheckBox x:Name="CheckBoxLeftView"
+                   Content="Вид слева"
                    Margin="0,5" />
 
         <CheckBox x:Name="CheckBox3D"

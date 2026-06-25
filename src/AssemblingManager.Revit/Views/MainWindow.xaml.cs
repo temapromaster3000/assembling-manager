@@ -12,7 +12,10 @@ namespace AssemblingManager.Revit.Views
             InitializeComponent();
 
             CheckBoxPlan.IsChecked = true;
-            CheckBoxSection.IsChecked = true;
+            CheckBoxFrontView.IsChecked = true;
+            CheckBoxBackView.IsChecked = true;
+            CheckBoxRightView.IsChecked = true;
+            CheckBoxLeftView.IsChecked = true;
             CheckBox3D.IsChecked = true;
         }
 
@@ -21,11 +24,19 @@ namespace AssemblingManager.Revit.Views
             Options = new ViewCreationOptions
             {
                 CreatePlan = CheckBoxPlan.IsChecked ?? false,
-                CreateSection = CheckBoxSection.IsChecked ?? false,
+                CreateFrontView = CheckBoxFrontView.IsChecked ?? false,
+                CreateBackView = CheckBoxBackView.IsChecked ?? false,
+                CreateRightView = CheckBoxRightView.IsChecked ?? false,
+                CreateLeftView = CheckBoxLeftView.IsChecked ?? false,
                 Create3D = CheckBox3D.IsChecked ?? false
             };
 
-            if (!Options.CreatePlan && !Options.CreateSection && !Options.Create3D)
+            if (!Options.CreatePlan &&
+                !Options.CreateFrontView &&
+                !Options.CreateBackView &&
+                !Options.CreateRightView &&
+                !Options.CreateLeftView &&
+                !Options.Create3D)
             {
                 MessageBox.Show("Выберите хотя бы один вид.", "Assembling Manager", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
