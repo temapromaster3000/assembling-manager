@@ -139,6 +139,27 @@ namespace AssemblingManager.Revit.Services
                 .FirstOrDefault(v => v.Name == viewName);
         }
 
+        public List<View> GetExistingAssemblyViews(Document doc, string assemblyName)
+        {
+            string[] names =
+            {
+                assemblyName + PlanSuffix,
+                assemblyName + FrontViewSuffix,
+                assemblyName + BackViewSuffix,
+                assemblyName + RightViewSuffix,
+                assemblyName + LeftViewSuffix,
+                assemblyName + View3DSuffix
+            };
+
+            HashSet<string> nameSet = new HashSet<string>(names);
+
+            return new FilteredElementCollector(doc)
+                .OfClass(typeof(View))
+                .Cast<View>()
+                .Where(v => nameSet.Contains(v.Name))
+                .ToList();
+        }
+
         private const double MillimetersToFeet = 1.0 / 304.8;
 
         public ViewPlan CreatePlanView(Document doc, string assemblyName, BoundingBoxXYZ bbox, ElementId levelId)

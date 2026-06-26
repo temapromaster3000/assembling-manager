@@ -112,7 +112,12 @@ namespace AssemblingManager.Revit.Services
                 }
             }
 
-            return null;
+            SharedParameterElement byName = new FilteredElementCollector(doc)
+                .OfClass(typeof(SharedParameterElement))
+                .Cast<SharedParameterElement>()
+                .FirstOrDefault(sp => sp.Name == parameterName);
+
+            return byName?.Id;
         }
     }
 }

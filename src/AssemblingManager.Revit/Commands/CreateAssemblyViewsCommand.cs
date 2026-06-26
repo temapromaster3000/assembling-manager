@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Windows;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
@@ -51,11 +52,31 @@ namespace AssemblingManager.Revit.Commands
 
                 if (conflicts.Count > 0)
                 {
+                    List<string> activeViewConflicts = GetActiveViewConflicts(uiDocument, conflicts);
+                    if (activeViewConflicts.Count > 0)
+                    {
+                        string messageText = "Нельзя заменить виды, которые сейчас открыты:\n\n" +
+                            string.Join("\n", activeViewConflicts) +
+                            "\n\nЗакройте эти виды и попробуйте снова.";
+                        MessageBox.Show(messageText, "Assembling Manager", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        continue;
+                    }
+
                     ConflictDialog conflictDialog = new ConflictDialog(conflicts);
                     bool? conflictResult = conflictDialog.ShowDialog();
 
                     if (conflictResult != true)
                     {
+                        continue;
+                    }
+
+                    activeViewConflicts = GetActiveViewConflicts(uiDocument, conflictDialog.ConflictItems.Where(i => i.Replace).ToList());
+                    if (activeViewConflicts.Count > 0)
+                    {
+                        string messageText = "Нельзя заменить виды, которые сейчас открыты:\n\n" +
+                            string.Join("\n", activeViewConflicts) +
+                            "\n\nЗакройте эти виды и попробуйте снова.";
+                        MessageBox.Show(messageText, "Assembling Manager", MessageBoxButton.OK, MessageBoxImage.Warning);
                         continue;
                     }
 
@@ -103,6 +124,26 @@ namespace AssemblingManager.Revit.Commands
 
                 return Result.Succeeded;
             }
+        }
+        private List<string> GetActiveViewConflicts(UIDocument uiDocument, List<ViewConflictItem> conflictsToReplace)
+        {
+            View activeView = uiDocument.ActiveView;
+            if (activeView == null)
+            {
+                return new List<string>();
+            }
+
+            List<string> result = new List<string>();
+
+            foreach (ViewConflictItem item in conflictsToReplace)
+            {
+                if (item.ViewName == activeView.Name)
+                {
+                    result.Add(item.ViewName);
+                }
+            }
+
+            return result;
         }
     }
 }
