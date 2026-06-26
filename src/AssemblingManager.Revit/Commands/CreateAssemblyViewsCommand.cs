@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
@@ -22,45 +25,83 @@ namespace AssemblingManager.Revit.Commands
                 .OfClass(typeof(AssemblyInstance))
                 .GetElementCount();
 
-            MainWindow window = new MainWindow(assemblyCount);
-            bool? dialogResult = window.ShowDialog();
+            ViewCreationOptions options = null;
 
-            if (dialogResult != true)
+            while (true)
             {
-                return Result.Cancelled;
-            }
+                MainWindow window = new MainWindow(assemblyCount, options);
+                bool? dialogResult = window.ShowDialog();
 
-            ViewCreationOptions options = window.Options;
-
-            using (TransactionGroup transactionGroup = new TransactionGroup(document, "Assembling Manager"))
-            {
-                transactionGroup.Start();
-
-                try
+                if (dialogResult != true)
                 {
-                    using (Transaction transaction = new Transaction(document, "Create views and filters"))
+                    return Result.Cancelled;
+                }
+
+                options = window.Options;
+
+                ViewService viewService = new ViewService();
+                List<AssemblyInstance> assemblies = new FilteredElementCollector(document)
+                    .OfClass(typeof(AssemblyInstance))
+                    .Cast<AssemblyInstance>()
+                    .ToList();
+
+                List<ViewConflictItem> conflicts = viewService.FindExistingViewConflicts(document, assemblies, options);
+
+                ViewConflictResolution resolution = new ViewConflictResolution();
+
+                if (conflicts.Count > 0)
+                {
+                    ConflictDialog conflictDialog = new ConflictDialog(conflicts);
+                    bool? conflictResult = conflictDialog.ShowDialog();
+
+                    if (conflictResult != true)
                     {
-                        FailureHandlingOptions failureOptions = transaction.GetFailureHandlingOptions();
-                        failureOptions.SetFailuresPreprocessor(new FailurePreprocessor());
-                        transaction.SetFailureHandlingOptions(failureOptions);
-
-                        transaction.Start();
-
-                        OrchestratorService orchestrator = new OrchestratorService();
-                        orchestrator.GenerateViews(document, uiApplication.Application, options);
-
-                        transaction.Commit();
+                        continue;
                     }
 
-                    transactionGroup.Assimilate();
-                    return Result.Succeeded;
+                    resolution.Items = conflictDialog.ConflictItems;
                 }
-                catch (Exception ex)
+
+                Stopwatch stopwatch = Stopwatch.StartNew();
+                ViewCreationResult result;
+
+                using (TransactionGroup transactionGroup = new TransactionGroup(document, "Assembling Manager"))
                 {
-                    transactionGroup.RollBack();
-                    message = ex.Message;
-                    return Result.Failed;
+                    transactionGroup.Start();
+
+                    try
+                    {
+                        using (Transaction transaction = new Transaction(document, "Create views and filters"))
+                        {
+                            FailureHandlingOptions failureOptions = transaction.GetFailureHandlingOptions();
+                            failureOptions.SetFailuresPreprocessor(new FailurePreprocessor());
+                            transaction.SetFailureHandlingOptions(failureOptions);
+
+                            transaction.Start();
+
+                            OrchestratorService orchestrator = new OrchestratorService();
+                            result = orchestrator.GenerateViews(document, uiApplication.Application, options, resolution);
+
+                            transaction.Commit();
+                        }
+
+                        transactionGroup.Assimilate();
+                    }
+                    catch (Exception ex)
+                    {
+                        transactionGroup.RollBack();
+                        message = ex.Message;
+                        return Result.Failed;
+                    }
                 }
+
+                stopwatch.Stop();
+                result.Elapsed = stopwatch.Elapsed;
+
+                ReportDialog reportDialog = new ReportDialog(result);
+                reportDialog.ShowDialog();
+
+                return Result.Succeeded;
             }
         }
     }

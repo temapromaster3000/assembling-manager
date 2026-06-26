@@ -1,0 +1,73 @@
+<Window x:Class="AssemblingManager.Revit.Views.ConflictDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Найдены существующие виды"
+        SizeToContent="WidthAndHeight"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen"
+        Height="400"
+        Width="500">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                  Text="Следующие виды уже существуют. Отметьте те, которые нужно заменить:"
+                  TextWrapping="Wrap"
+                  Margin="0,0,0,10" />
+
+        <ListView Grid.Row="1"
+                   x:Name="ConflictListView"
+                   Height="250">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="Заменить"
+                                   Width="70">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox HorizontalAlignment="Center"
+                                          IsChecked="{Binding Replace, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn Header="Сборка"
+                                   DisplayMemberBinding="{Binding AssemblyName}"
+                                   Width="150" />
+                    <GridViewColumn Header="Тип вида"
+                                   DisplayMemberBinding="{Binding ViewTypeDisplayName}"
+                                   Width="120" />
+                    <GridViewColumn Header="Имя вида"
+                                   DisplayMemberBinding="{Binding ViewName}"
+                                   Width="150" />
+                </GridView>
+            </ListView.View>
+        </ListView>
+
+        <StackPanel Grid.Row="2"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,15,0,0">
+            <Button x:Name="ButtonSelectAll"
+                    Content="Выбрать всё"
+                    Width="100"
+                    Margin="0,0,10,0"
+                    Click="ButtonSelectAll_Click" />
+
+            <Button x:Name="ButtonCancel"
+                    Content="Отмена"
+                    Width="80"
+                    Margin="0,0,10,0"
+                    IsCancel="True"
+                    Click="ButtonCancel_Click" />
+
+            <Button x:Name="ButtonOK"
+                    Content="OK"
+                    Width="80"
+                    IsDefault="True"
+                    Click="ButtonOK_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

@@ -22,7 +22,7 @@ namespace AssemblingManager.Revit.Services
             _filterService = new FilterService();
         }
 
-        public void GenerateViews(Document doc, Application app, ViewCreationOptions options)
+        public ViewCreationResult GenerateViews(Document doc, Application app, ViewCreationOptions options, ViewConflictResolution resolution)
         {
             List<AssemblyInstance> assemblies = new FilteredElementCollector(doc)
                 .OfClass(typeof(AssemblyInstance))
@@ -54,12 +54,11 @@ namespace AssemblingManager.Revit.Services
 
             ElementId parameterId = _parameterService.GetOrCreateParameter(doc, app, allCategories);
 
+            ViewCreationResult result = new ViewCreationResult();
+
             foreach (AssemblyInstance assembly in assemblies)
             {
                 ICollection<ElementId> elementIds = assemblyElements[assembly];
-                _parameterService.SetParameterValue(doc, parameterId, elementIds, assembly.Name);
-
-                _viewService.DeleteExistingViews(doc, assembly.Name);
 
                 BoundingBoxXYZ bbox = _assemblyService.GetElementsBoundingBox(doc, elementIds, offset: 0.0);
                 if (bbox == null)
@@ -67,38 +66,90 @@ namespace AssemblingManager.Revit.Services
                     continue;
                 }
 
-                List<View> views = new List<View>();
+                List<View> viewsToFilter = new List<View>();
+                bool anyViewModified = false;
 
                 if (options.CreatePlan)
                 {
-                    ElementId levelId = _assemblyService.GetOrCreateZeroLevelId(doc);
-                    views.Add(_viewService.CreatePlanView(doc, assembly.Name, bbox, levelId));
+                    View view = CreateOrReplaceView(doc, assembly.Name, ViewService.PlanSuffix, () =>
+                    {
+                        ElementId levelId = _assemblyService.GetOrCreateZeroLevelId(doc);
+                        return _viewService.CreatePlanView(doc, assembly.Name, bbox, levelId);
+                    }, resolution, result, out bool wasModified);
+
+                    if (view != null)
+                    {
+                        viewsToFilter.Add(view);
+                        anyViewModified |= wasModified;
+                    }
                 }
 
                 if (options.CreateFrontView)
                 {
-                    views.Add(_viewService.CreateFrontView(doc, assembly.Name, bbox));
+                    View view = CreateOrReplaceView(doc, assembly.Name, ViewService.FrontViewSuffix, () =>
+                        _viewService.CreateFrontView(doc, assembly.Name, bbox), resolution, result, out bool wasModified);
+
+                    if (view != null)
+                    {
+                        viewsToFilter.Add(view);
+                        anyViewModified |= wasModified;
+                    }
                 }
 
                 if (options.CreateBackView)
                 {
-                    views.Add(_viewService.CreateBackView(doc, assembly.Name, bbox));
+                    View view = CreateOrReplaceView(doc, assembly.Name, ViewService.BackViewSuffix, () =>
+                        _viewService.CreateBackView(doc, assembly.Name, bbox), resolution, result, out bool wasModified);
+
+                    if (view != null)
+                    {
+                        viewsToFilter.Add(view);
+                        anyViewModified |= wasModified;
+                    }
                 }
 
                 if (options.CreateRightView)
                 {
-                    views.Add(_viewService.CreateRightView(doc, assembly.Name, bbox));
+                    View view = CreateOrReplaceView(doc, assembly.Name, ViewService.RightViewSuffix, () =>
+                        _viewService.CreateRightView(doc, assembly.Name, bbox), resolution, result, out bool wasModified);
+
+                    if (view != null)
+                    {
+                        viewsToFilter.Add(view);
+                        anyViewModified |= wasModified;
+                    }
                 }
 
                 if (options.CreateLeftView)
                 {
-                    views.Add(_viewService.CreateLeftView(doc, assembly.Name, bbox));
+                    View view = CreateOrReplaceView(doc, assembly.Name, ViewService.LeftViewSuffix, () =>
+                        _viewService.CreateLeftView(doc, assembly.Name, bbox), resolution, result, out bool wasModified);
+
+                    if (view != null)
+                    {
+                        viewsToFilter.Add(view);
+                        anyViewModified |= wasModified;
+                    }
                 }
 
                 if (options.Create3D)
                 {
-                    views.Add(_viewService.Create3DView(doc, assembly.Name, bbox));
+                    View view = CreateOrReplaceView(doc, assembly.Name, ViewService.View3DSuffix, () =>
+                        _viewService.Create3DView(doc, assembly.Name, bbox), resolution, result, out bool wasModified);
+
+                    if (view != null)
+                    {
+                        viewsToFilter.Add(view);
+                        anyViewModified |= wasModified;
+                    }
                 }
+
+                if (!anyViewModified)
+                {
+                    continue;
+                }
+
+                _parameterService.SetParameterValue(doc, parameterId, elementIds, assembly.Name);
 
                 List<Category> assemblyCategories = elementIds
                     .Select(id => doc.GetElement(id))
@@ -109,11 +160,41 @@ namespace AssemblingManager.Revit.Services
 
                 ParameterFilterElement filter = _filterService.CreateAssemblyFilter(doc, parameterId, assembly.Name, assemblyCategories);
 
-                foreach (View view in views)
+                foreach (View view in viewsToFilter)
                 {
                     _filterService.ApplyFilterToView(view, filter.Id);
                 }
             }
+
+            return result;
+        }
+
+        private View CreateOrReplaceView(Document doc, string assemblyName, string suffix, Func<View> createView, ViewConflictResolution resolution, ViewCreationResult result, out bool wasModified)
+        {
+            string viewName = assemblyName + suffix;
+            View existingView = _viewService.GetViewByName(doc, viewName);
+
+            if (existingView != null)
+            {
+                ViewConflictItem conflict = resolution?.Items.FirstOrDefault(i => i.ViewName == viewName);
+                bool replace = conflict?.Replace ?? false;
+
+                if (!replace)
+                {
+                    result.SkippedCount++;
+                    wasModified = false;
+                    return existingView;
+                }
+
+                _viewService.DeleteViewsByNames(doc, new[] { viewName });
+                result.ReplacedCount++;
+                wasModified = true;
+                return createView();
+            }
+
+            result.CreatedCount++;
+            wasModified = true;
+            return createView();
         }
     }
 }

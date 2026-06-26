@@ -2,17 +2,28 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
+using AssemblingManager.Core.Models;
 
 namespace AssemblingManager.Revit.Services
 {
     public class ViewService
     {
-        private const string PlanSuffix = "_План";
-        private const string FrontViewSuffix = "_Вид спереди";
-        private const string BackViewSuffix = "_Вид сзади";
-        private const string RightViewSuffix = "_Вид справа";
-        private const string LeftViewSuffix = "_Вид слева";
-        private const string View3DSuffix = "_3D";
+        public const string PlanSuffix = "_План";
+        public const string FrontViewSuffix = "_Вид спереди";
+        public const string BackViewSuffix = "_Вид сзади";
+        public const string RightViewSuffix = "_Вид справа";
+        public const string LeftViewSuffix = "_Вид слева";
+        public const string View3DSuffix = "_3D";
+
+        private readonly IReadOnlyList<ViewTypeInfo> _viewTypes = new List<ViewTypeInfo>
+        {
+            new ViewTypeInfo(ViewType.Plan, PlanSuffix, "План"),
+            new ViewTypeInfo(ViewType.FrontView, FrontViewSuffix, "Вид спереди"),
+            new ViewTypeInfo(ViewType.BackView, BackViewSuffix, "Вид сзади"),
+            new ViewTypeInfo(ViewType.RightView, RightViewSuffix, "Вид справа"),
+            new ViewTypeInfo(ViewType.LeftView, LeftViewSuffix, "Вид слева"),
+            new ViewTypeInfo(ViewType.View3D, View3DSuffix, "3D вид")
+        };
 
         public void DeleteExistingViews(Document doc, string assemblyName)
         {
@@ -26,6 +37,13 @@ namespace AssemblingManager.Revit.Services
                 assemblyName + View3DSuffix
             };
 
+            DeleteViewsByNames(doc, names);
+        }
+
+        public void DeleteViewsByNames(Document doc, IEnumerable<string> viewNames)
+        {
+            HashSet<string> names = new HashSet<string>(viewNames);
+
             List<ElementId> viewsToDelete = new FilteredElementCollector(doc)
                 .OfClass(typeof(View))
                 .Cast<View>()
@@ -37,6 +55,88 @@ namespace AssemblingManager.Revit.Services
             {
                 doc.Delete(viewsToDelete);
             }
+        }
+
+        public List<ViewConflictItem> FindExistingViewConflicts(Document doc, IEnumerable<AssemblyInstance> assemblies, ViewCreationOptions options)
+        {
+            List<ViewConflictItem> conflicts = new List<ViewConflictItem>();
+
+            HashSet<string> existingNames = new HashSet<string>(
+                new FilteredElementCollector(doc)
+                    .OfClass(typeof(View))
+                    .Cast<View>()
+                    .Select(v => v.Name));
+
+            foreach (AssemblyInstance assembly in assemblies)
+            {
+                foreach (ViewTypeInfo viewType in _viewTypes)
+                {
+                    if (!IsViewTypeSelected(options, viewType.Type))
+                    {
+                        continue;
+                    }
+
+                    string viewName = assembly.Name + viewType.Suffix;
+                    if (existingNames.Contains(viewName))
+                    {
+                        conflicts.Add(new ViewConflictItem
+                        {
+                            AssemblyName = assembly.Name,
+                            ViewName = viewName,
+                            ViewTypeDisplayName = viewType.DisplayName,
+                            Replace = false
+                        });
+                    }
+                }
+            }
+
+            return conflicts;
+        }
+
+        private bool IsViewTypeSelected(ViewCreationOptions options, ViewType viewType)
+        {
+            switch (viewType)
+            {
+                case ViewType.Plan: return options.CreatePlan;
+                case ViewType.FrontView: return options.CreateFrontView;
+                case ViewType.BackView: return options.CreateBackView;
+                case ViewType.RightView: return options.CreateRightView;
+                case ViewType.LeftView: return options.CreateLeftView;
+                case ViewType.View3D: return options.Create3D;
+                default: return false;
+            }
+        }
+
+        private class ViewTypeInfo
+        {
+            public ViewType Type { get; }
+            public string Suffix { get; }
+            public string DisplayName { get; }
+
+            public ViewTypeInfo(ViewType type, string suffix, string displayName)
+            {
+                Type = type;
+                Suffix = suffix;
+                DisplayName = displayName;
+            }
+        }
+
+        private enum ViewType
+        {
+            Plan,
+            FrontView,
+            BackView,
+            RightView,
+            LeftView,
+            View3D
+        }
+
+        public View GetViewByName(Document doc, string viewName)
+        {
+            return new FilteredElementCollector(doc)
+                .OfClass(typeof(View))
+                .Cast<View>()
+                .FirstOrDefault(v => v.Name == viewName);
         }
 
         private const double MillimetersToFeet = 1.0 / 304.8;

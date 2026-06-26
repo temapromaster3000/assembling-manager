@@ -10,24 +10,36 @@ namespace AssemblingManager.Revit.Views
         private readonly int _assemblyCount;
         private bool _isUpdatingSectionsState;
 
-        public MainWindow(int assemblyCount)
+        public MainWindow(int assemblyCount, ViewCreationOptions initialOptions = null)
         {
             _assemblyCount = assemblyCount;
             InitializeComponent();
 
-            InitializeCheckBoxes();
+            InitializeCheckBoxes(initialOptions);
             UpdateCounter();
         }
 
-        private void InitializeCheckBoxes()
+        private void InitializeCheckBoxes(ViewCreationOptions initialOptions)
         {
-            CheckBoxPlan.IsChecked = true;
-            CheckBox3D.IsChecked = true;
+            if (initialOptions != null)
+            {
+                CheckBoxPlan.IsChecked = initialOptions.CreatePlan;
+                CheckBox3D.IsChecked = initialOptions.Create3D;
+                CheckBoxFrontView.IsChecked = initialOptions.CreateFrontView;
+                CheckBoxBackView.IsChecked = initialOptions.CreateBackView;
+                CheckBoxRightView.IsChecked = initialOptions.CreateRightView;
+                CheckBoxLeftView.IsChecked = initialOptions.CreateLeftView;
+            }
+            else
+            {
+                CheckBoxPlan.IsChecked = true;
+                CheckBox3D.IsChecked = true;
 
-            CheckBoxFrontView.IsChecked = true;
-            CheckBoxBackView.IsChecked = true;
-            CheckBoxRightView.IsChecked = true;
-            CheckBoxLeftView.IsChecked = true;
+                CheckBoxFrontView.IsChecked = true;
+                CheckBoxBackView.IsChecked = true;
+                CheckBoxRightView.IsChecked = true;
+                CheckBoxLeftView.IsChecked = true;
+            }
 
             UpdateSectionsCheckBoxState();
         }

@@ -24,6 +24,8 @@ namespace AssemblingManager.Revit.Services
 
             string filterName = $"{assemblyName}_Фильтр";
 
+            DeleteExistingFilter(doc, filterName);
+
 #if REVIT2023_OR_GREATER
             FilterRule rule = ParameterFilterRuleFactory.CreateNotEqualsRule(parameterId, assemblyName);
 #else
@@ -34,6 +36,19 @@ namespace AssemblingManager.Revit.Services
             ParameterFilterElement filter = ParameterFilterElement.Create(doc, filterName, categoryIds, elementFilter);
 
             return filter;
+        }
+
+        public void DeleteExistingFilter(Document doc, string filterName)
+        {
+            ParameterFilterElement existingFilter = new FilteredElementCollector(doc)
+                .OfClass(typeof(ParameterFilterElement))
+                .Cast<ParameterFilterElement>()
+                .FirstOrDefault(f => f.Name == filterName);
+
+            if (existingFilter != null)
+            {
+                doc.Delete(existingFilter.Id);
+            }
         }
 
         public void ApplyFilterToView(View view, ElementId filterId)
