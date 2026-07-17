@@ -52,7 +52,29 @@ namespace AssemblingManager.Revit.Services
                 }
             }
 
-            ElementId parameterId = _parameterService.GetOrCreateParameter(doc, app, allCategories);
+            ElementId parameterId;
+
+            if (options.UseExistingGroupingParameter)
+            {
+                parameterId = _parameterService.GetParameterByName(doc, "ADSK_Группирование");
+                if (parameterId == null)
+                {
+                    throw new InvalidOperationException("Параметр 'ADSK_Группирование' не найден в проекте.");
+                }
+
+                if (options.MissingCategoriesCount > 0)
+                {
+                    _parameterService.AddMissingCategories(doc, parameterId, allCategories);
+                }
+            }
+            else if (options.CreateNewParameter)
+            {
+                parameterId = _parameterService.GetOrCreateParameter(doc, app, allCategories);
+            }
+            else
+            {
+                throw new InvalidOperationException("Не выбран способ работы с параметром для фильтра.");
+            }
 
             ViewCreationResult result = new ViewCreationResult();
 
@@ -117,7 +139,11 @@ namespace AssemblingManager.Revit.Services
                     CreateOrReplaceView(doc, assembly.Name, ViewService.View3DSuffix, () =>
                         _viewService.Create3DView(doc, assembly.Name, bbox), resolution, result);
                 }
+            }
 
+            foreach (AssemblyInstance assembly in assemblies)
+            {
+                ICollection<ElementId> elementIds = assemblyElements[assembly];
                 List<Category> assemblyCategories = elementIds
                     .Select(id => doc.GetElement(id))
                     .Where(e => e != null && e.Category != null)

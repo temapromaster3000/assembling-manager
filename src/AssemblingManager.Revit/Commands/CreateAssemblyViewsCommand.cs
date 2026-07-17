@@ -22,15 +22,48 @@ namespace AssemblingManager.Revit.Commands
             UIDocument uiDocument = uiApplication.ActiveUIDocument;
             Document document = uiDocument.Document;
 
-            int assemblyCount = new FilteredElementCollector(document)
+            List<AssemblyInstance> assemblies = new FilteredElementCollector(document)
                 .OfClass(typeof(AssemblyInstance))
-                .GetElementCount();
+                .Cast<AssemblyInstance>()
+                .ToList();
+
+            if (assemblies.Count == 0)
+            {
+                MessageBox.Show("В модели не найдены сборки.", "Assembling Manager", MessageBoxButton.OK, MessageBoxImage.Information);
+                return Result.Cancelled;
+            }
+
+            AssemblyService assemblyService = new AssemblyService();
+            Dictionary<AssemblyInstance, ICollection<ElementId>> assemblyElements = new Dictionary<AssemblyInstance, ICollection<ElementId>>();
+            HashSet<Category> allCategories = new HashSet<Category>();
+            List<ElementId> allElementIds = new List<ElementId>();
+
+            foreach (AssemblyInstance assembly in assemblies)
+            {
+                ICollection<ElementId> elementIds = assemblyService.CollectAssemblyElements(document, assembly);
+                assemblyElements[assembly] = elementIds;
+                allElementIds.AddRange(elementIds);
+
+                foreach (ElementId elementId in elementIds)
+                {
+                    Element element = document.GetElement(elementId);
+                    if (element != null && element.Category != null)
+                    {
+                        allCategories.Add(element.Category);
+                    }
+                }
+            }
 
             ViewCreationOptions options = null;
 
             while (true)
             {
-                MainWindow window = new MainWindow(assemblyCount, options);
+                MainWindow window = new MainWindow(
+                    assemblies.Count,
+                    allCategories.ToList(),
+                    allElementIds,
+                    document,
+                    options);
                 bool? dialogResult = window.ShowDialog();
 
                 if (dialogResult != true)
@@ -41,11 +74,6 @@ namespace AssemblingManager.Revit.Commands
                 options = window.Options;
 
                 ViewService viewService = new ViewService();
-                List<AssemblyInstance> assemblies = new FilteredElementCollector(document)
-                    .OfClass(typeof(AssemblyInstance))
-                    .Cast<AssemblyInstance>()
-                    .ToList();
-
                 List<ViewConflictItem> conflicts = viewService.FindExistingViewConflicts(document, assemblies, options);
 
                 ViewConflictResolution resolution = new ViewConflictResolution();

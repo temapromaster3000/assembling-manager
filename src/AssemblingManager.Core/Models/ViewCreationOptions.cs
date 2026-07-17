@@ -2,6 +2,10 @@ namespace AssemblingManager.Core.Models
 {
     public class ViewCreationOptions
     {
+        public bool UseExistingGroupingParameter { get; set; }
+        public bool CreateNewParameter { get; set; }
+        public int MissingCategoriesCount { get; set; }
+
         public bool CreatePlan { get; set; }
         public bool CreateFrontView { get; set; }
         public bool CreateBackView { get; set; }
