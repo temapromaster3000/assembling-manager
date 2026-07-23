@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using AssemblingManager.Core.Models;
+using AssemblingManager.Revit.Services;
 
 namespace AssemblingManager.Revit.Views
 {
@@ -35,6 +36,8 @@ namespace AssemblingManager.Revit.Views
 
             builder.AppendLine();
             builder.AppendLine($"Время работы: {result.Elapsed.TotalSeconds:F2} с");
+            builder.AppendLine();
+            builder.AppendLine($"Лог-файл: {Logger.GetLogFilePath()}");
 
             return builder.ToString();
         }

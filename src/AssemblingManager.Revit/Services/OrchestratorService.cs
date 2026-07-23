@@ -24,13 +24,18 @@ namespace AssemblingManager.Revit.Services
 
         public ViewCreationResult GenerateViews(Document doc, Application app, ViewCreationOptions options, ViewConflictResolution resolution)
         {
+            Logger.Info("OrchestratorService.GenerateViews started.");
+
             List<AssemblyInstance> assemblies = new FilteredElementCollector(doc)
                 .OfClass(typeof(AssemblyInstance))
                 .Cast<AssemblyInstance>()
                 .ToList();
 
+            Logger.Info($"Found {assemblies.Count} assemblies in model.");
+
             if (assemblies.Count == 0)
             {
+                Logger.Error("No assemblies found in model.");
                 throw new InvalidOperationException("В модели не найдены сборки.");
             }
 
@@ -52,13 +57,17 @@ namespace AssemblingManager.Revit.Services
                 }
             }
 
+            Logger.Info($"Collected {assemblyElements.Count} assemblies, {allCategories.Count} categories.");
+
             ElementId parameterId;
 
             if (options.UseExistingGroupingParameter)
             {
+                Logger.Info("Using existing grouping parameter 'ADSK_Группирование'.");
                 parameterId = _parameterService.GetParameterByName(doc, "ADSK_Группирование");
                 if (parameterId == null)
                 {
+                    Logger.Error("Parameter 'ADSK_Группирование' not found in project.");
                     throw new InvalidOperationException("Параметр 'ADSK_Группирование' не найден в проекте.");
                 }
 
@@ -69,12 +78,16 @@ namespace AssemblingManager.Revit.Services
             }
             else if (options.CreateNewParameter)
             {
+                Logger.Info("Creating new grouping parameter.");
                 parameterId = _parameterService.GetOrCreateParameter(doc, app, allCategories);
             }
             else
             {
+                Logger.Error("No grouping parameter option selected.");
                 throw new InvalidOperationException("Не выбран способ работы с параметром для фильтра.");
             }
+
+            Logger.Info("Parameter resolved.");
 
             ViewCreationResult result = new ViewCreationResult();
 
@@ -141,6 +154,8 @@ namespace AssemblingManager.Revit.Services
                 }
             }
 
+            Logger.Info("Creating and applying assembly filters.");
+
             foreach (AssemblyInstance assembly in assemblies)
             {
                 ICollection<ElementId> elementIds = assemblyElements[assembly];
@@ -160,6 +175,8 @@ namespace AssemblingManager.Revit.Services
                 }
             }
 
+            Logger.Info($"OrchestratorService.GenerateViews finished: Created {result.CreatedCount}, Replaced {result.ReplacedCount}, Skipped {result.SkippedCount}.");
+
             return result;
         }
 
@@ -175,17 +192,24 @@ namespace AssemblingManager.Revit.Services
 
                 if (!replace)
                 {
+                    Logger.Debug($"Skipping existing view '{viewName}'.");
                     result.SkippedCount++;
                     return existingView;
                 }
 
+                Logger.Debug($"Replacing existing view '{viewName}'.");
                 _viewService.DeleteViewsByNames(doc, new[] { viewName });
                 result.ReplacedCount++;
-                return createView();
+                View replacedView = createView();
+                Logger.Debug($"Replaced view '{viewName}'.");
+                return replacedView;
             }
 
+            Logger.Debug($"Creating new view '{viewName}'.");
             result.CreatedCount++;
-            return createView();
+            View newView = createView();
+            Logger.Debug($"Created new view '{viewName}'.");
+            return newView;
         }
     }
 }

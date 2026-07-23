@@ -22,6 +22,10 @@ namespace AssemblingManager.Revit.Commands
             UIDocument uiDocument = uiApplication.ActiveUIDocument;
             Document document = uiDocument.Document;
 
+            Logger.Info("=== CreateAssemblyViewsCommand started ===");
+            Logger.Info($"Log file: {Logger.GetLogFilePath()}");
+            Logger.Info($"Document: {document.Title}");
+
             List<AssemblyInstance> assemblies = new FilteredElementCollector(document)
                 .OfClass(typeof(AssemblyInstance))
                 .Cast<AssemblyInstance>()
@@ -29,9 +33,12 @@ namespace AssemblingManager.Revit.Commands
 
             if (assemblies.Count == 0)
             {
+                Logger.Warn("No assemblies found. Command cancelled.");
                 MessageBox.Show("В модели не найдены сборки.", "Assembling Manager", MessageBoxButton.OK, MessageBoxImage.Information);
                 return Result.Cancelled;
             }
+
+            Logger.Info($"Found {assemblies.Count} assemblies.");
 
             AssemblyService assemblyService = new AssemblyService();
             Dictionary<AssemblyInstance, ICollection<ElementId>> assemblyElements = new Dictionary<AssemblyInstance, ICollection<ElementId>>();
@@ -54,6 +61,8 @@ namespace AssemblingManager.Revit.Commands
                 }
             }
 
+            Logger.Info($"Collected {allCategories.Count} categories and {allElementIds.Count} elements for {assemblyElements.Count} assemblies.");
+
             ViewCreationOptions options = null;
 
             while (true)
@@ -68,6 +77,7 @@ namespace AssemblingManager.Revit.Commands
 
                 if (dialogResult != true)
                 {
+                    Logger.Info("User cancelled the main dialog.");
                     return Result.Cancelled;
                 }
 
@@ -95,6 +105,7 @@ namespace AssemblingManager.Revit.Commands
 
                     if (conflictResult != true)
                     {
+                        Logger.Info("User cancelled the conflict dialog.");
                         continue;
                     }
 
@@ -117,6 +128,7 @@ namespace AssemblingManager.Revit.Commands
                 using (TransactionGroup transactionGroup = new TransactionGroup(document, "Assembling Manager"))
                 {
                     transactionGroup.Start();
+                    Logger.Info("TransactionGroup started.");
 
                     try
                     {
@@ -127,18 +139,23 @@ namespace AssemblingManager.Revit.Commands
                             transaction.SetFailureHandlingOptions(failureOptions);
 
                             transaction.Start();
+                            Logger.Info("Transaction started.");
 
                             OrchestratorService orchestrator = new OrchestratorService();
                             result = orchestrator.GenerateViews(document, uiApplication.Application, options, resolution);
 
                             transaction.Commit();
+                            Logger.Info("Transaction committed.");
                         }
 
                         transactionGroup.Assimilate();
+                        Logger.Info("TransactionGroup assimilated.");
                     }
                     catch (Exception ex)
                     {
+                        Logger.Error($"Exception during execution: {ex}");
                         transactionGroup.RollBack();
+                        Logger.Info("TransactionGroup rolled back.");
                         message = ex.Message;
                         return Result.Failed;
                     }
@@ -146,6 +163,9 @@ namespace AssemblingManager.Revit.Commands
 
                 stopwatch.Stop();
                 result.Elapsed = stopwatch.Elapsed;
+
+                Logger.Info($"=== CreateAssemblyViewsCommand finished: {result.Elapsed.TotalSeconds:F2} s ===");
+                Logger.Info($"Created: {result.CreatedCount}, Replaced: {result.ReplacedCount}, Skipped: {result.SkippedCount}");
 
                 ReportDialog reportDialog = new ReportDialog(result);
                 reportDialog.ShowDialog();
