@@ -3,11 +3,12 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Assembling Manager"
         Width="600"
-        Height="420"
+        SizeToContent="Height"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen">
     <Grid Margin="20">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
@@ -31,15 +32,15 @@
                     </Grid.RowDefinitions>
 
                     <StackPanel Grid.Row="0">
-                        <RadioButton x:Name="RadioButtonUseGrouping"
-                                     Content="Использовать &quot;ADSK__Группирование&quot;"
+                        <RadioButton x:Name="RadioButtonCreateNew"
+                                     Content="Создать новый общий параметр"
                                      GroupName="ParameterMode"
                                      HorizontalAlignment="Left"
                                      Checked="ParameterMode_Checked"
                                      Unchecked="ParameterMode_Unchecked" />
 
-                        <RadioButton x:Name="RadioButtonCreateNew"
-                                     Content="Создать новый общий параметр"
+                        <RadioButton x:Name="RadioButtonUseGrouping"
+                                     Content="Использовать &quot;ADSK_Группирование&quot;"
                                      GroupName="ParameterMode"
                                      HorizontalAlignment="Left"
                                      Margin="0,5,0,0"
@@ -71,7 +72,7 @@
                     <CheckBox x:Name="CheckBoxPlan"
                               Content="План"
                               HorizontalAlignment="Left"
-                              Margin="0,0,0,0"
+                              IsChecked="False"
                               Checked="IndividualCheckBox_CheckedChanged"
                               Unchecked="IndividualCheckBox_CheckedChanged" />
 
@@ -82,6 +83,7 @@
                                   Content="Разрезы"
                                   HorizontalAlignment="Left"
                                   IsThreeState="True"
+                                  IsChecked="False"
                                   Click="CheckBoxSections_Click" />
 
                         <Button x:Name="ButtonSectionOptions"
@@ -111,24 +113,28 @@
                                 <StackPanel>
                                     <CheckBox x:Name="CheckBoxFrontView"
                                               Content="Вид спереди"
+                                              IsChecked="False"
                                               Margin="0,3"
                                               Checked="IndividualCheckBox_CheckedChanged"
                                               Unchecked="IndividualCheckBox_CheckedChanged" />
 
                                     <CheckBox x:Name="CheckBoxBackView"
                                               Content="Вид сзади"
+                                              IsChecked="False"
                                               Margin="0,3"
                                               Checked="IndividualCheckBox_CheckedChanged"
                                               Unchecked="IndividualCheckBox_CheckedChanged" />
 
                                     <CheckBox x:Name="CheckBoxRightView"
                                               Content="Вид справа"
+                                              IsChecked="False"
                                               Margin="0,3"
                                               Checked="IndividualCheckBox_CheckedChanged"
                                               Unchecked="IndividualCheckBox_CheckedChanged" />
 
                                     <CheckBox x:Name="CheckBoxLeftView"
                                               Content="Вид слева"
+                                              IsChecked="False"
                                               Margin="0,3"
                                               Checked="IndividualCheckBox_CheckedChanged"
                                               Unchecked="IndividualCheckBox_CheckedChanged" />
@@ -140,6 +146,15 @@
                     <CheckBox x:Name="CheckBox3D"
                               Content="3D вид"
                               HorizontalAlignment="Left"
+                              IsChecked="False"
+                              Margin="0,5,0,0"
+                              Checked="IndividualCheckBox_CheckedChanged"
+                              Unchecked="IndividualCheckBox_CheckedChanged" />
+
+                    <CheckBox x:Name="CheckBoxSchedule"
+                              Content="Спецификация"
+                              HorizontalAlignment="Left"
+                              IsChecked="False"
                               Margin="0,5,0,0"
                               Checked="IndividualCheckBox_CheckedChanged"
                               Unchecked="IndividualCheckBox_CheckedChanged" />
@@ -147,18 +162,19 @@
             </GroupBox>
         </Grid>
 
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="1"
+              Margin="0,0,0,10">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="10" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-    <GroupBox Grid.Column="0"
-              Header="Шаблоны видов"
-              Height="170"
-              Padding="10"
-              VerticalAlignment="Bottom">
+            <GroupBox Grid.Column="0"
+                      Header="Шаблоны видов"
+                      Height="170"
+                      Padding="10"
+                      VerticalAlignment="Top">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -180,59 +196,100 @@
                 </Grid>
             </GroupBox>
 
-            <StackPanel Grid.Column="2"
-                        VerticalAlignment="Bottom"
-                        HorizontalAlignment="Right">
-                <Grid HorizontalAlignment="Right" Margin="0,0,0,10">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="10" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+            <GroupBox Grid.Column="2"
+                      x:Name="GroupBoxSchedule"
+                      Header="Спецификация"
+                      Height="170"
+                      Padding="10"
+                      VerticalAlignment="Top"
+                      IsEnabled="{Binding ElementName=CheckBoxSchedule, Path=IsChecked}">
+                <GroupBox.Style>
+                    <Style TargetType="GroupBox">
+                        <Setter Property="Foreground"
+                                Value="Black" />
+                        <Style.Triggers>
+                            <Trigger Property="IsEnabled"
+                                    Value="False">
+                                <Setter Property="Foreground"
+                                        Value="Gray" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </GroupBox.Style>
+                <Grid>
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Grid.Column="0"
-                               Text="Сборок в проекте:"
-                               TextAlignment="Right" />
+                    <TextBlock Grid.Row="0" Text="Мастер-спецификация:" />
+                    <ComboBox Grid.Row="1"
+                              x:Name="ComboBoxMasterSchedule"
+                              SelectionChanged="ComboBoxMasterSchedule_SelectionChanged" />
 
-                    <TextBlock x:Name="TextBlockAssemblyCount"
-                               Grid.Row="0" Grid.Column="2"
-                               Text="0" />
-
-                    <TextBlock Grid.Row="1" Grid.Column="0"
-                               Text="Будет создано видов:"
-                               FontWeight="Bold"
-                               TextAlignment="Right"
-                               Margin="0,5,0,0" />
-
-                    <TextBlock x:Name="TextBlockViewCount"
-                               Grid.Row="1" Grid.Column="2"
-                               Text="0"
-                               FontWeight="Bold"
-                               Margin="0,5,0,0" />
+                    <TextBlock Grid.Row="2" Text="Шаблон вида:" Margin="0,4,0,0" />
+                    <ComboBox Grid.Row="3" x:Name="ComboBoxScheduleTemplate" />
                 </Grid>
-
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-
-                    <Button x:Name="ButtonCancel"
-                             Content="Отмена"
-                             Width="80"
-                             Margin="0,0,10,0"
-                             IsCancel="True"
-                             Click="ButtonCancel_Click" />
-
-                    <Button x:Name="ButtonCreate"
-                             Content="Сформировать"
-                             Width="100"
-                             IsDefault="True"
-                             Click="ButtonCreate_Click"
-                             Background="Blue"
-                             Foreground="White" />
-                </StackPanel>
-            </StackPanel>
+            </GroupBox>
         </Grid>
+
+        <StackPanel Grid.Row="2"
+                    Grid.Column="2"
+                    VerticalAlignment="Bottom"
+                    HorizontalAlignment="Right">
+            <Grid HorizontalAlignment="Right" Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0"
+                           Text="Сборок в проекте:"
+                           TextAlignment="Right" />
+
+                <TextBlock x:Name="TextBlockAssemblyCount"
+                           Grid.Row="0" Grid.Column="2"
+                           Text="0" />
+
+                <TextBlock Grid.Row="1" Grid.Column="0"
+                           Text="Будет создано видов:"
+                           FontWeight="Bold"
+                           TextAlignment="Right"
+                           Margin="0,5,0,0" />
+
+                <TextBlock x:Name="TextBlockViewCount"
+                           Grid.Row="1" Grid.Column="2"
+                           Text="0"
+                           FontWeight="Bold"
+                           Margin="0,5,0,0" />
+            </Grid>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+
+                <Button x:Name="ButtonCancel"
+                         Content="Отмена"
+                         Width="80"
+                         Margin="0,0,10,0"
+                         IsCancel="True"
+                         Click="ButtonCancel_Click" />
+
+                <Button x:Name="ButtonCreate"
+                         Content="Сформировать"
+                         Width="100"
+                         IsDefault="True"
+                         Click="ButtonCreate_Click"
+                         Background="Blue"
+                         Foreground="White" />
+            </StackPanel>
+        </StackPanel>
     </Grid>
 </Window>

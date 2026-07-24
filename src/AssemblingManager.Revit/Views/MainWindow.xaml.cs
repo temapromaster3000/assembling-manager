@@ -23,6 +23,7 @@ namespace AssemblingManager.Revit.Views
         private readonly IReadOnlyList<ElementId> _assemblyElementIds;
         private readonly ParameterService _parameterService;
         private readonly ViewTemplateService _viewTemplateService;
+        private readonly ScheduleService _scheduleService;
         private bool _isUpdatingSectionsState;
         private bool _wasPopupOpen;
         private bool _groupingParameterMissing;
@@ -42,6 +43,7 @@ namespace AssemblingManager.Revit.Views
             _assemblyElementIds = assemblyElementIds;
             _parameterService = new ParameterService();
             _viewTemplateService = new ViewTemplateService();
+            _scheduleService = new ScheduleService();
 
             InitializeComponent();
 
@@ -49,26 +51,27 @@ namespace AssemblingManager.Revit.Views
 
             InitializeParameterMode(initialOptions);
             InitializeCheckBoxes(initialOptions);
-            UpdateCounter();
             InitializeTemplateComboBoxes(initialOptions);
+            InitializeScheduleComboBoxes(initialOptions);
+            UpdateCounter();
         }
 
         private void InitializeParameterMode(ViewCreationOptions initialOptions)
         {
             if (initialOptions != null)
             {
-                if (initialOptions.UseExistingGroupingParameter)
-                {
-                    RadioButtonUseGrouping.IsChecked = true;
-                }
-                else if (initialOptions.CreateNewParameter)
+                if (initialOptions.CreateNewParameter)
                 {
                     RadioButtonCreateNew.IsChecked = true;
+                }
+                else if (initialOptions.UseExistingGroupingParameter)
+                {
+                    RadioButtonUseGrouping.IsChecked = true;
                 }
             }
             else
             {
-                RadioButtonUseGrouping.IsChecked = true;
+                RadioButtonCreateNew.IsChecked = true;
             }
         }
 
@@ -78,6 +81,7 @@ namespace AssemblingManager.Revit.Views
             {
                 CheckBoxPlan.IsChecked = initialOptions.CreatePlan;
                 CheckBox3D.IsChecked = initialOptions.Create3D;
+                CheckBoxSchedule.IsChecked = initialOptions.CreateSchedule;
                 CheckBoxFrontView.IsChecked = initialOptions.CreateFrontView;
                 CheckBoxBackView.IsChecked = initialOptions.CreateBackView;
                 CheckBoxRightView.IsChecked = initialOptions.CreateRightView;
@@ -85,13 +89,13 @@ namespace AssemblingManager.Revit.Views
             }
             else
             {
-                CheckBoxPlan.IsChecked = true;
-                CheckBox3D.IsChecked = true;
-
-                CheckBoxFrontView.IsChecked = true;
-                CheckBoxBackView.IsChecked = true;
-                CheckBoxRightView.IsChecked = true;
-                CheckBoxLeftView.IsChecked = true;
+                CheckBoxPlan.IsChecked = false;
+                CheckBox3D.IsChecked = false;
+                CheckBoxSchedule.IsChecked = false;
+                CheckBoxFrontView.IsChecked = false;
+                CheckBoxBackView.IsChecked = false;
+                CheckBoxRightView.IsChecked = false;
+                CheckBoxLeftView.IsChecked = false;
             }
 
             UpdateSectionsCheckBoxState();
@@ -113,6 +117,19 @@ namespace AssemblingManager.Revit.Views
             ComboBoxView3DTemplate.ItemsSource = view3DTemplates;
             ComboBoxView3DTemplate.DisplayMemberPath = "Name";
             ComboBoxView3DTemplate.SelectedItem = SelectTemplateById(view3DTemplates, initialOptions?.View3DTemplateId);
+
+            List<ViewTemplateItem> scheduleViewTemplates = _viewTemplateService.GetScheduleViewTemplates(_document);
+            ComboBoxScheduleTemplate.ItemsSource = scheduleViewTemplates;
+            ComboBoxScheduleTemplate.DisplayMemberPath = "Name";
+            ComboBoxScheduleTemplate.SelectedItem = SelectTemplateById(scheduleViewTemplates, initialOptions?.ScheduleViewTemplateId);
+        }
+
+        private void InitializeScheduleComboBoxes(ViewCreationOptions initialOptions)
+        {
+            List<ViewTemplateItem> availableSchedules = _scheduleService.GetAvailableScheduleItems(_document);
+            ComboBoxMasterSchedule.ItemsSource = availableSchedules;
+            ComboBoxMasterSchedule.DisplayMemberPath = "Name";
+            ComboBoxMasterSchedule.SelectedItem = SelectTemplateById(availableSchedules, initialOptions?.MasterScheduleId);
         }
 
         private ViewTemplateItem SelectTemplateById(List<ViewTemplateItem> templates, int? templateId)
@@ -273,11 +290,16 @@ namespace AssemblingManager.Revit.Views
 
         private void IndividualCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
         {
-            if (sender != CheckBoxPlan && sender != CheckBox3D)
+            if (sender != CheckBoxPlan && sender != CheckBox3D && sender != CheckBoxSchedule)
             {
                 UpdateSectionsCheckBoxState();
             }
 
+            UpdateCounter();
+        }
+
+        private void ComboBoxMasterSchedule_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
             UpdateCounter();
         }
 
@@ -320,6 +342,12 @@ namespace AssemblingManager.Revit.Views
             if (CheckBoxLeftView.IsChecked == true) selectedViewCount++;
 
             int totalViews = _assemblyCount * selectedViewCount;
+
+            if (CheckBoxSchedule.IsChecked == true && GetSelectedTemplateId(ComboBoxMasterSchedule).HasValue)
+            {
+                totalViews += _assemblyCount;
+            }
+
             TextBlockViewCount.Text = $"{totalViews}";
         }
 
@@ -349,6 +377,7 @@ namespace AssemblingManager.Revit.Views
             int? planTemplateId = GetSelectedTemplateId(ComboBoxPlanTemplate);
             int? sectionTemplateId = GetSelectedTemplateId(ComboBoxSectionTemplate);
             int? view3DTemplateId = GetSelectedTemplateId(ComboBoxView3DTemplate);
+            int? scheduleViewTemplateId = GetSelectedTemplateId(ComboBoxScheduleTemplate);
 
             bool createPlan = CheckBoxPlan.IsChecked == true;
             bool createSections = CheckBoxFrontView.IsChecked == true ||
@@ -356,6 +385,14 @@ namespace AssemblingManager.Revit.Views
                                   CheckBoxRightView.IsChecked == true ||
                                   CheckBoxLeftView.IsChecked == true;
             bool create3D = CheckBox3D.IsChecked == true;
+            bool createSchedule = CheckBoxSchedule.IsChecked == true;
+            int? masterScheduleId = GetSelectedTemplateId(ComboBoxMasterSchedule);
+
+            if (createSchedule && !masterScheduleId.HasValue)
+            {
+                MessageBox.Show("Выберите мастер-спецификацию для копирования.", "Assembling Manager", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
 
             List<string> blockedViewTypes = new List<string>();
 
@@ -420,9 +457,12 @@ namespace AssemblingManager.Revit.Views
                 CreateRightView = CheckBoxRightView.IsChecked ?? false,
                 CreateLeftView = CheckBoxLeftView.IsChecked ?? false,
                 Create3D = create3D,
+                CreateSchedule = createSchedule,
+                MasterScheduleId = masterScheduleId,
                 PlanTemplateId = planTemplateId,
                 SectionTemplateId = sectionTemplateId,
-                View3DTemplateId = view3DTemplateId
+                View3DTemplateId = view3DTemplateId,
+                ScheduleViewTemplateId = scheduleViewTemplateId
             };
 
             if (blockedViewTypes.Contains("План"))
@@ -448,7 +488,8 @@ namespace AssemblingManager.Revit.Views
                 !Options.CreateBackView &&
                 !Options.CreateRightView &&
                 !Options.CreateLeftView &&
-                !Options.Create3D)
+                !Options.Create3D &&
+                !Options.CreateSchedule)
             {
                 MessageBox.Show("Выберите хотя бы один вид.", "Assembling Manager", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
