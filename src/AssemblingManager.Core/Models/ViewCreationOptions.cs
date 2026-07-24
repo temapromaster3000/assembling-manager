@@ -12,5 +12,9 @@ namespace AssemblingManager.Core.Models
         public bool CreateRightView { get; set; }
         public bool CreateLeftView { get; set; }
         public bool Create3D { get; set; }
+
+        public int? PlanTemplateId { get; set; }
+        public int? SectionTemplateId { get; set; }
+        public int? View3DTemplateId { get; set; }
     }
 }
