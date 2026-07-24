@@ -369,6 +369,28 @@ namespace AssemblingManager.Revit.Services
             return view3D;
         }
 
+        public void ApplyViewTemplate(View view, int? templateId)
+        {
+            if (!templateId.HasValue)
+            {
+                return;
+            }
+
+#pragma warning disable CS0618
+            ElementId id = new ElementId(templateId.Value);
+#pragma warning restore CS0618
+
+            if (view.IsValidViewTemplate(id))
+            {
+                view.ViewTemplateId = id;
+                Logger.Debug($"Applied view template Id {templateId.Value} to view '{view.Name}'.");
+            }
+            else
+            {
+                Logger.Warn($"View template Id {templateId.Value} is not valid for view '{view.Name}' (ViewType {view.ViewType}).");
+            }
+        }
+
         private ElementId GetViewFamilyTypeId(Document doc, ViewFamily viewFamily)
         {
             return new FilteredElementCollector(doc)

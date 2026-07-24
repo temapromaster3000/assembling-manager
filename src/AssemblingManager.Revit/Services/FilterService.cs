@@ -53,8 +53,15 @@ namespace AssemblingManager.Revit.Services
 
         public void ApplyFilterToView(View view, ElementId filterId)
         {
-            view.AddFilter(filterId);
-            view.SetFilterVisibility(filterId, false);
+            try
+            {
+                view.AddFilter(filterId);
+                view.SetFilterVisibility(filterId, false);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Could not apply filter '{filterId}' to view '{view.Name}': {ex.Message}");
+            }
         }
     }
 }

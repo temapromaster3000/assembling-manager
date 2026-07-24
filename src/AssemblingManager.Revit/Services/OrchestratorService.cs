@@ -88,6 +88,7 @@ namespace AssemblingManager.Revit.Services
             }
 
             Logger.Info("Parameter resolved.");
+            Logger.Info($"Selected templates: Plan={options.PlanTemplateId}, Section={options.SectionTemplateId}, 3D={options.View3DTemplateId}");
 
             ViewCreationResult result = new ViewCreationResult();
 
@@ -116,7 +117,7 @@ namespace AssemblingManager.Revit.Services
 
                 if (options.CreatePlan)
                 {
-                    CreateOrReplaceView(doc, assembly.Name, ViewService.PlanSuffix, () =>
+                    CreateOrReplaceView(doc, assembly.Name, ViewService.PlanSuffix, options.PlanTemplateId, () =>
                     {
                         ElementId levelId = _assemblyService.GetOrCreateZeroLevelId(doc);
                         return _viewService.CreatePlanView(doc, assembly.Name, bbox, levelId);
@@ -125,31 +126,31 @@ namespace AssemblingManager.Revit.Services
 
                 if (options.CreateFrontView)
                 {
-                    CreateOrReplaceView(doc, assembly.Name, ViewService.FrontViewSuffix, () =>
+                    CreateOrReplaceView(doc, assembly.Name, ViewService.FrontViewSuffix, options.SectionTemplateId, () =>
                         _viewService.CreateFrontView(doc, assembly.Name, bbox), resolution, result);
                 }
 
                 if (options.CreateBackView)
                 {
-                    CreateOrReplaceView(doc, assembly.Name, ViewService.BackViewSuffix, () =>
+                    CreateOrReplaceView(doc, assembly.Name, ViewService.BackViewSuffix, options.SectionTemplateId, () =>
                         _viewService.CreateBackView(doc, assembly.Name, bbox), resolution, result);
                 }
 
                 if (options.CreateRightView)
                 {
-                    CreateOrReplaceView(doc, assembly.Name, ViewService.RightViewSuffix, () =>
+                    CreateOrReplaceView(doc, assembly.Name, ViewService.RightViewSuffix, options.SectionTemplateId, () =>
                         _viewService.CreateRightView(doc, assembly.Name, bbox), resolution, result);
                 }
 
                 if (options.CreateLeftView)
                 {
-                    CreateOrReplaceView(doc, assembly.Name, ViewService.LeftViewSuffix, () =>
+                    CreateOrReplaceView(doc, assembly.Name, ViewService.LeftViewSuffix, options.SectionTemplateId, () =>
                         _viewService.CreateLeftView(doc, assembly.Name, bbox), resolution, result);
                 }
 
                 if (options.Create3D)
                 {
-                    CreateOrReplaceView(doc, assembly.Name, ViewService.View3DSuffix, () =>
+                    CreateOrReplaceView(doc, assembly.Name, ViewService.View3DSuffix, options.View3DTemplateId, () =>
                         _viewService.Create3DView(doc, assembly.Name, bbox), resolution, result);
                 }
             }
@@ -180,7 +181,7 @@ namespace AssemblingManager.Revit.Services
             return result;
         }
 
-        private View CreateOrReplaceView(Document doc, string assemblyName, string suffix, Func<View> createView, ViewConflictResolution resolution, ViewCreationResult result)
+        private View CreateOrReplaceView(Document doc, string assemblyName, string suffix, int? templateId, Func<View> createView, ViewConflictResolution resolution, ViewCreationResult result)
         {
             string viewName = assemblyName + suffix;
             View existingView = _viewService.GetViewByName(doc, viewName);
@@ -201,6 +202,7 @@ namespace AssemblingManager.Revit.Services
                 _viewService.DeleteViewsByNames(doc, new[] { viewName });
                 result.ReplacedCount++;
                 View replacedView = createView();
+                _viewService.ApplyViewTemplate(replacedView, templateId);
                 Logger.Debug($"Replaced view '{viewName}'.");
                 return replacedView;
             }
@@ -208,6 +210,7 @@ namespace AssemblingManager.Revit.Services
             Logger.Debug($"Creating new view '{viewName}'.");
             result.CreatedCount++;
             View newView = createView();
+            _viewService.ApplyViewTemplate(newView, templateId);
             Logger.Debug($"Created new view '{viewName}'.");
             return newView;
         }
