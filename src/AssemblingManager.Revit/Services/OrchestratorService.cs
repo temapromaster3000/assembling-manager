@@ -91,6 +91,7 @@ namespace AssemblingManager.Revit.Services
             Logger.Info($"Selected templates: Plan={options.PlanTemplateId}, Section={options.SectionTemplateId}, 3D={options.View3DTemplateId}");
 
             ViewCreationResult result = new ViewCreationResult();
+            Dictionary<string, View> viewMasters = new Dictionary<string, View>();
 
             foreach (AssemblyInstance assembly in assemblies)
             {
@@ -115,43 +116,114 @@ namespace AssemblingManager.Revit.Services
                     continue;
                 }
 
+                ElementId levelId = _assemblyService.GetOrCreateZeroLevelId(doc);
+
                 if (options.CreatePlan)
                 {
-                    CreateOrReplaceView(doc, assembly.Name, ViewService.PlanSuffix, options.PlanTemplateId, () =>
-                    {
-                        ElementId levelId = _assemblyService.GetOrCreateZeroLevelId(doc);
-                        return _viewService.CreatePlanView(doc, assembly.Name, bbox, levelId);
-                    }, resolution, result);
+                    string suffix = ViewService.PlanSuffix;
+                    View master = viewMasters.ContainsKey(suffix) ? viewMasters[suffix] : null;
+                    (View view, bool createdOrReplaced) = CreateOrReplaceView(
+                        doc,
+                        assembly.Name,
+                        suffix,
+                        options.PlanTemplateId,
+                        () => _viewService.CreatePlanView(doc, assembly.Name, bbox, levelId),
+                        m => _viewService.DuplicatePlanView(doc, (ViewPlan)m, assembly.Name, bbox, levelId),
+                        master,
+                        resolution,
+                        result);
+                    if (createdOrReplaced && !viewMasters.ContainsKey(suffix))
+                        viewMasters[suffix] = view;
                 }
 
                 if (options.CreateFrontView)
                 {
-                    CreateOrReplaceView(doc, assembly.Name, ViewService.FrontViewSuffix, options.SectionTemplateId, () =>
-                        _viewService.CreateFrontView(doc, assembly.Name, bbox), resolution, result);
+                    string suffix = ViewService.FrontViewSuffix;
+                    View master = viewMasters.ContainsKey(suffix) ? viewMasters[suffix] : null;
+                    (View view, bool createdOrReplaced) = CreateOrReplaceView(
+                        doc,
+                        assembly.Name,
+                        suffix,
+                        options.SectionTemplateId,
+                        () => _viewService.CreateFrontView(doc, assembly.Name, bbox),
+                        m => _viewService.DuplicateSectionView(doc, (ViewSection)m, assembly.Name, ViewService.FrontViewSuffix, bbox),
+                        master,
+                        resolution,
+                        result);
+                    if (createdOrReplaced && !viewMasters.ContainsKey(suffix))
+                        viewMasters[suffix] = view;
                 }
 
                 if (options.CreateBackView)
                 {
-                    CreateOrReplaceView(doc, assembly.Name, ViewService.BackViewSuffix, options.SectionTemplateId, () =>
-                        _viewService.CreateBackView(doc, assembly.Name, bbox), resolution, result);
+                    string suffix = ViewService.BackViewSuffix;
+                    View master = viewMasters.ContainsKey(suffix) ? viewMasters[suffix] : null;
+                    (View view, bool createdOrReplaced) = CreateOrReplaceView(
+                        doc,
+                        assembly.Name,
+                        suffix,
+                        options.SectionTemplateId,
+                        () => _viewService.CreateBackView(doc, assembly.Name, bbox),
+                        m => _viewService.DuplicateSectionView(doc, (ViewSection)m, assembly.Name, ViewService.BackViewSuffix, bbox),
+                        master,
+                        resolution,
+                        result);
+                    if (createdOrReplaced && !viewMasters.ContainsKey(suffix))
+                        viewMasters[suffix] = view;
                 }
 
                 if (options.CreateRightView)
                 {
-                    CreateOrReplaceView(doc, assembly.Name, ViewService.RightViewSuffix, options.SectionTemplateId, () =>
-                        _viewService.CreateRightView(doc, assembly.Name, bbox), resolution, result);
+                    string suffix = ViewService.RightViewSuffix;
+                    View master = viewMasters.ContainsKey(suffix) ? viewMasters[suffix] : null;
+                    (View view, bool createdOrReplaced) = CreateOrReplaceView(
+                        doc,
+                        assembly.Name,
+                        suffix,
+                        options.SectionTemplateId,
+                        () => _viewService.CreateRightView(doc, assembly.Name, bbox),
+                        m => _viewService.DuplicateSectionView(doc, (ViewSection)m, assembly.Name, ViewService.RightViewSuffix, bbox),
+                        master,
+                        resolution,
+                        result);
+                    if (createdOrReplaced && !viewMasters.ContainsKey(suffix))
+                        viewMasters[suffix] = view;
                 }
 
                 if (options.CreateLeftView)
                 {
-                    CreateOrReplaceView(doc, assembly.Name, ViewService.LeftViewSuffix, options.SectionTemplateId, () =>
-                        _viewService.CreateLeftView(doc, assembly.Name, bbox), resolution, result);
+                    string suffix = ViewService.LeftViewSuffix;
+                    View master = viewMasters.ContainsKey(suffix) ? viewMasters[suffix] : null;
+                    (View view, bool createdOrReplaced) = CreateOrReplaceView(
+                        doc,
+                        assembly.Name,
+                        suffix,
+                        options.SectionTemplateId,
+                        () => _viewService.CreateLeftView(doc, assembly.Name, bbox),
+                        m => _viewService.DuplicateSectionView(doc, (ViewSection)m, assembly.Name, ViewService.LeftViewSuffix, bbox),
+                        master,
+                        resolution,
+                        result);
+                    if (createdOrReplaced && !viewMasters.ContainsKey(suffix))
+                        viewMasters[suffix] = view;
                 }
 
                 if (options.Create3D)
                 {
-                    CreateOrReplaceView(doc, assembly.Name, ViewService.View3DSuffix, options.View3DTemplateId, () =>
-                        _viewService.Create3DView(doc, assembly.Name, bbox), resolution, result);
+                    string suffix = ViewService.View3DSuffix;
+                    View master = viewMasters.ContainsKey(suffix) ? viewMasters[suffix] : null;
+                    (View view, bool createdOrReplaced) = CreateOrReplaceView(
+                        doc,
+                        assembly.Name,
+                        suffix,
+                        options.View3DTemplateId,
+                        () => _viewService.Create3DView(doc, assembly.Name, bbox),
+                        m => _viewService.Duplicate3DView(doc, (View3D)m, assembly.Name, bbox),
+                        master,
+                        resolution,
+                        result);
+                    if (createdOrReplaced && !viewMasters.ContainsKey(suffix))
+                        viewMasters[suffix] = view;
                 }
             }
 
@@ -181,7 +253,7 @@ namespace AssemblingManager.Revit.Services
             return result;
         }
 
-        private View CreateOrReplaceView(Document doc, string assemblyName, string suffix, int? templateId, Func<View> createView, ViewConflictResolution resolution, ViewCreationResult result)
+        private (View View, bool CreatedOrReplaced) CreateOrReplaceView(Document doc, string assemblyName, string suffix, int? templateId, Func<View> createFromScratch, Func<View, View> duplicateFromMaster, View master, ViewConflictResolution resolution, ViewCreationResult result)
         {
             string viewName = assemblyName + suffix;
             View existingView = _viewService.GetViewByName(doc, viewName);
@@ -195,24 +267,46 @@ namespace AssemblingManager.Revit.Services
                 {
                     Logger.Debug($"Skipping existing view '{viewName}'.");
                     result.SkippedCount++;
-                    return existingView;
+                    return (existingView, false);
                 }
 
                 Logger.Debug($"Replacing existing view '{viewName}'.");
                 _viewService.DeleteViewsByNames(doc, new[] { viewName });
                 result.ReplacedCount++;
-                View replacedView = createView();
+                View replacedView = CreateView(master, createFromScratch, duplicateFromMaster);
                 _viewService.ApplyViewTemplate(replacedView, templateId);
                 Logger.Debug($"Replaced view '{viewName}'.");
-                return replacedView;
+                return (replacedView, true);
             }
 
             Logger.Debug($"Creating new view '{viewName}'.");
             result.CreatedCount++;
-            View newView = createView();
+            View newView = CreateView(master, createFromScratch, duplicateFromMaster);
             _viewService.ApplyViewTemplate(newView, templateId);
-            Logger.Debug($"Created new view '{viewName}'.");
-            return newView;
+            Logger.Debug($"Created view '{viewName}'.");
+            return (newView, true);
+        }
+
+        private View CreateView(View master, Func<View> createFromScratch, Func<View, View> duplicateFromMaster)
+        {
+            if (master != null && master.CanViewBeDuplicated(ViewDuplicateOption.Duplicate))
+            {
+                try
+                {
+                    View duplicatedView = duplicateFromMaster(master);
+                    if (duplicatedView != null)
+                    {
+                        Logger.Debug($"Duplicated view from master '{master.Name}'.");
+                        return duplicatedView;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"Could not duplicate view from master '{master.Name}': {ex.Message}. Falling back to creation.");
+                }
+            }
+
+            return createFromScratch();
         }
     }
 }

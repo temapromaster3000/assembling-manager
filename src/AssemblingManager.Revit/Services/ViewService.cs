@@ -167,6 +167,13 @@ namespace AssemblingManager.Revit.Services
             ElementId viewFamilyTypeId = GetViewFamilyTypeId(doc, ViewFamily.FloorPlan);
 
             ViewPlan viewPlan = ViewPlan.Create(doc, viewFamilyTypeId, levelId);
+            ApplyPlanViewGeometry(doc, viewPlan, assemblyName, bbox, levelId);
+
+            return viewPlan;
+        }
+
+        private void ApplyPlanViewGeometry(Document doc, ViewPlan viewPlan, string assemblyName, BoundingBoxXYZ bbox, ElementId levelId)
+        {
             viewPlan.Name = assemblyName + PlanSuffix;
             viewPlan.CropBoxActive = true;
             viewPlan.CropBoxVisible = true;
@@ -207,8 +214,6 @@ namespace AssemblingManager.Revit.Services
             planViewRange.SetOffset(PlanViewPlane.ViewDepthPlane, (roundedMinZMm - viewRangeOffsetMm - levelElevationMm) * MillimetersToFeet);
 
             viewPlan.SetViewRange(planViewRange);
-
-            return viewPlan;
         }
 
         private static double RoundToHundred(double valueMm, bool roundUp)
@@ -363,10 +368,104 @@ namespace AssemblingManager.Revit.Services
             ElementId viewFamilyTypeId = GetViewFamilyTypeId(doc, ViewFamily.ThreeDimensional);
 
             View3D view3D = View3D.CreateIsometric(doc, viewFamilyTypeId);
-            view3D.Name = assemblyName + View3DSuffix;
-            view3D.SetSectionBox(bbox);
+            Apply3DViewGeometry(view3D, assemblyName, bbox);
 
             return view3D;
+        }
+
+        private void Apply3DViewGeometry(View3D view3D, string assemblyName, BoundingBoxXYZ bbox)
+        {
+            view3D.Name = assemblyName + View3DSuffix;
+            view3D.SetSectionBox(bbox);
+        }
+
+        public ViewPlan DuplicatePlanView(Document doc, ViewPlan source, string assemblyName, BoundingBoxXYZ bbox, ElementId levelId)
+        {
+            if (!source.CanViewBeDuplicated(ViewDuplicateOption.Duplicate))
+            {
+                throw new InvalidOperationException($"Plan view '{source.Name}' cannot be duplicated.");
+            }
+
+            ElementId newId = source.Duplicate(ViewDuplicateOption.Duplicate);
+            ViewPlan viewPlan = doc.GetElement(newId) as ViewPlan;
+            if (viewPlan == null)
+            {
+                throw new InvalidOperationException("Duplicated plan view is not valid.");
+            }
+
+            ApplyPlanViewGeometry(doc, viewPlan, assemblyName, bbox, levelId);
+            return viewPlan;
+        }
+
+        public View3D Duplicate3DView(Document doc, View3D source, string assemblyName, BoundingBoxXYZ bbox)
+        {
+            if (!source.CanViewBeDuplicated(ViewDuplicateOption.Duplicate))
+            {
+                throw new InvalidOperationException($"3D view '{source.Name}' cannot be duplicated.");
+            }
+
+            ElementId newId = source.Duplicate(ViewDuplicateOption.Duplicate);
+            View3D view3D = doc.GetElement(newId) as View3D;
+            if (view3D == null)
+            {
+                throw new InvalidOperationException("Duplicated 3D view is not valid.");
+            }
+
+            Apply3DViewGeometry(view3D, assemblyName, bbox);
+            return view3D;
+        }
+
+        public ViewSection DuplicateSectionView(Document doc, ViewSection source, string assemblyName, string suffix, BoundingBoxXYZ bbox)
+        {
+            if (!source.CanViewBeDuplicated(ViewDuplicateOption.Duplicate))
+            {
+                throw new InvalidOperationException($"Section view '{source.Name}' cannot be duplicated.");
+            }
+
+            ElementId newId = source.Duplicate(ViewDuplicateOption.Duplicate);
+            ViewSection viewSection = doc.GetElement(newId) as ViewSection;
+            if (viewSection == null)
+            {
+                throw new InvalidOperationException("Duplicated section view is not valid.");
+            }
+
+            BoundingBoxXYZ cropBox = CalculateSectionCropBoxFromSourceTransform(source.CropBox.Transform, bbox);
+            viewSection.CropBox = cropBox;
+            viewSection.Name = assemblyName + suffix;
+            return viewSection;
+        }
+
+        private BoundingBoxXYZ CalculateSectionCropBoxFromSourceTransform(Transform sourceTransform, BoundingBoxXYZ targetBBox)
+        {
+            XYZ targetCenter = (targetBBox.Min + targetBBox.Max) / 2;
+
+            Transform newTransform = Transform.Identity;
+            newTransform.Origin = targetCenter;
+            newTransform.BasisX = sourceTransform.BasisX;
+            newTransform.BasisY = sourceTransform.BasisY;
+            newTransform.BasisZ = sourceTransform.BasisZ;
+
+            XYZ localMin = newTransform.Inverse.OfPoint(targetBBox.Min);
+            XYZ localMax = newTransform.Inverse.OfPoint(targetBBox.Max);
+
+            double minX = Math.Min(localMin.X, localMax.X);
+            double maxX = Math.Max(localMin.X, localMax.X);
+            double minY = Math.Min(localMin.Y, localMax.Y);
+            double maxY = Math.Max(localMin.Y, localMax.Y);
+            double minZ = Math.Min(localMin.Z, localMax.Z);
+            double maxZ = Math.Max(localMin.Z, localMax.Z);
+
+            double halfWidth = (maxX - minX) / 2.0;
+            double halfHeight = (maxY - minY) / 2.0;
+            double halfDepth = (maxZ - minZ) / 2.0;
+            double offset = GetSectionBoxOffset();
+
+            BoundingBoxXYZ cropBox = new BoundingBoxXYZ();
+            cropBox.Transform = newTransform;
+            cropBox.Min = new XYZ(-halfWidth - offset, -halfHeight - offset, -halfDepth - offset);
+            cropBox.Max = new XYZ(halfWidth + offset, halfHeight + offset, halfDepth + offset);
+
+            return cropBox;
         }
 
         public void ApplyViewTemplate(View view, int? templateId)
