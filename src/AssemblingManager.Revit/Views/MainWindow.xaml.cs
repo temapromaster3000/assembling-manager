@@ -22,6 +22,7 @@ namespace AssemblingManager.Revit.Views
         private readonly IReadOnlyList<Category> _assemblyCategories;
         private readonly IReadOnlyList<ElementId> _assemblyElementIds;
         private readonly ParameterService _parameterService;
+        private readonly ViewTemplateService _viewTemplateService;
         private bool _isUpdatingSectionsState;
         private bool _wasPopupOpen;
         private bool _groupingParameterMissing;
@@ -40,6 +41,7 @@ namespace AssemblingManager.Revit.Views
             _assemblyCategories = assemblyCategories;
             _assemblyElementIds = assemblyElementIds;
             _parameterService = new ParameterService();
+            _viewTemplateService = new ViewTemplateService();
 
             InitializeComponent();
 
@@ -48,6 +50,7 @@ namespace AssemblingManager.Revit.Views
             InitializeParameterMode(initialOptions);
             InitializeCheckBoxes(initialOptions);
             UpdateCounter();
+            InitializeTemplateComboBoxes(initialOptions);
         }
 
         private void InitializeParameterMode(ViewCreationOptions initialOptions)
@@ -92,6 +95,39 @@ namespace AssemblingManager.Revit.Views
             }
 
             UpdateSectionsCheckBoxState();
+        }
+
+        private void InitializeTemplateComboBoxes(ViewCreationOptions initialOptions)
+        {
+            List<ViewTemplateItem> planTemplates = _viewTemplateService.GetPlanTemplates(_document);
+            ComboBoxPlanTemplate.ItemsSource = planTemplates;
+            ComboBoxPlanTemplate.DisplayMemberPath = "Name";
+            ComboBoxPlanTemplate.SelectedItem = SelectTemplateById(planTemplates, initialOptions?.PlanTemplateId);
+
+            List<ViewTemplateItem> sectionTemplates = _viewTemplateService.GetSectionTemplates(_document);
+            ComboBoxSectionTemplate.ItemsSource = sectionTemplates;
+            ComboBoxSectionTemplate.DisplayMemberPath = "Name";
+            ComboBoxSectionTemplate.SelectedItem = SelectTemplateById(sectionTemplates, initialOptions?.SectionTemplateId);
+
+            List<ViewTemplateItem> view3DTemplates = _viewTemplateService.GetView3DTemplates(_document);
+            ComboBoxView3DTemplate.ItemsSource = view3DTemplates;
+            ComboBoxView3DTemplate.DisplayMemberPath = "Name";
+            ComboBoxView3DTemplate.SelectedItem = SelectTemplateById(view3DTemplates, initialOptions?.View3DTemplateId);
+        }
+
+        private ViewTemplateItem SelectTemplateById(List<ViewTemplateItem> templates, int? templateId)
+        {
+            if (!templateId.HasValue)
+            {
+                return templates.FirstOrDefault();
+            }
+
+            return templates.FirstOrDefault(t => t.Id == templateId) ?? templates.FirstOrDefault();
+        }
+
+        private int? GetSelectedTemplateId(ComboBox comboBox)
+        {
+            return (comboBox.SelectedItem as ViewTemplateItem)?.Id;
         }
 
         private void ParameterMode_Checked(object sender, RoutedEventArgs e)
@@ -310,18 +346,102 @@ namespace AssemblingManager.Revit.Views
                 return;
             }
 
+            int? planTemplateId = GetSelectedTemplateId(ComboBoxPlanTemplate);
+            int? sectionTemplateId = GetSelectedTemplateId(ComboBoxSectionTemplate);
+            int? view3DTemplateId = GetSelectedTemplateId(ComboBoxView3DTemplate);
+
+            bool createPlan = CheckBoxPlan.IsChecked == true;
+            bool createSections = CheckBoxFrontView.IsChecked == true ||
+                                  CheckBoxBackView.IsChecked == true ||
+                                  CheckBoxRightView.IsChecked == true ||
+                                  CheckBoxLeftView.IsChecked == true;
+            bool create3D = CheckBox3D.IsChecked == true;
+
+            List<string> blockedViewTypes = new List<string>();
+
+            if (createPlan && planTemplateId.HasValue && _viewTemplateService.IsTemplateLockingFilters(_document, planTemplateId.Value))
+            {
+                blockedViewTypes.Add("План");
+            }
+
+            if (createSections && sectionTemplateId.HasValue && _viewTemplateService.IsTemplateLockingFilters(_document, sectionTemplateId.Value))
+            {
+                blockedViewTypes.Add("Разрезы");
+            }
+
+            if (create3D && view3DTemplateId.HasValue && _viewTemplateService.IsTemplateLockingFilters(_document, view3DTemplateId.Value))
+            {
+                blockedViewTypes.Add("3D вид");
+            }
+
+            int selectedViewTypesCount = 0;
+            if (createPlan) selectedViewTypesCount++;
+            if (createSections) selectedViewTypesCount++;
+            if (create3D) selectedViewTypesCount++;
+
+            if (blockedViewTypes.Count > 0 && blockedViewTypes.Count == selectedViewTypesCount)
+            {
+                MessageBox.Show(
+                    "Все выбранные шаблоны видов блокируют применение фильтров.\n" +
+                    "Без фильтров плагин не имеет смысла.\n" +
+                    "Пожалуйста, выберите другие шаблоны или отключите шаблоны для этих видов.",
+                    "Assembling Manager",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            if (blockedViewTypes.Count > 0)
+            {
+                string message = "Следующие шаблоны блокируют применение фильтров:\n" +
+                    string.Join("\n", blockedViewTypes.Select(v => $"• {v}")) +
+                    "\n\nВиды этих типов созданы не будут. Продолжить создание оставшихся видов?";
+
+                MessageBoxResult result = MessageBox.Show(
+                    message,
+                    "Assembling Manager",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (result != MessageBoxResult.Yes)
+                {
+                    return;
+                }
+            }
+
             Options = new ViewCreationOptions
             {
                 UseExistingGroupingParameter = useGrouping,
                 CreateNewParameter = createNew,
                 MissingCategoriesCount = _missingCategoriesCount,
-                CreatePlan = CheckBoxPlan.IsChecked ?? false,
+                CreatePlan = createPlan,
                 CreateFrontView = CheckBoxFrontView.IsChecked ?? false,
                 CreateBackView = CheckBoxBackView.IsChecked ?? false,
                 CreateRightView = CheckBoxRightView.IsChecked ?? false,
                 CreateLeftView = CheckBoxLeftView.IsChecked ?? false,
-                Create3D = CheckBox3D.IsChecked ?? false
+                Create3D = create3D,
+                PlanTemplateId = planTemplateId,
+                SectionTemplateId = sectionTemplateId,
+                View3DTemplateId = view3DTemplateId
             };
+
+            if (blockedViewTypes.Contains("План"))
+            {
+                Options.CreatePlan = false;
+            }
+
+            if (blockedViewTypes.Contains("Разрезы"))
+            {
+                Options.CreateFrontView = false;
+                Options.CreateBackView = false;
+                Options.CreateRightView = false;
+                Options.CreateLeftView = false;
+            }
+
+            if (blockedViewTypes.Contains("3D вид"))
+            {
+                Options.Create3D = false;
+            }
 
             if (!Options.CreatePlan &&
                 !Options.CreateFrontView &&
