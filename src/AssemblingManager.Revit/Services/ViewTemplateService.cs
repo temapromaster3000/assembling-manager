@@ -30,6 +30,11 @@ namespace AssemblingManager.Revit.Services
             return GetTemplates(doc, ViewType.ThreeD);
         }
 
+        public List<ViewTemplateItem> GetScheduleViewTemplates(Document doc)
+        {
+            return GetTemplates(doc, ViewType.Schedule);
+        }
+
         private List<ViewTemplateItem> GetTemplates(Document doc, params ViewType[] viewTypes)
         {
             HashSet<ViewType> allowedTypes = new HashSet<ViewType>(viewTypes);

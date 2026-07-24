@@ -86,6 +86,10 @@ namespace AssemblingManager.Revit.Commands
                 ViewService viewService = new ViewService();
                 List<ViewConflictItem> conflicts = viewService.FindExistingViewConflicts(document, assemblies, options);
 
+                ScheduleService scheduleService = new ScheduleService();
+                List<ViewConflictItem> scheduleConflicts = scheduleService.FindScheduleConflicts(document, assemblies, options);
+                conflicts.AddRange(scheduleConflicts);
+
                 ViewConflictResolution resolution = new ViewConflictResolution();
 
                 if (conflicts.Count > 0)
