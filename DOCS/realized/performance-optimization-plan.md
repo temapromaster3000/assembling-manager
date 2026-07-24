@@ -2,8 +2,7 @@
 
 ## Статус
 
-`in-progress` — план взят в работу.
-Перемещение в `docs/realized/` выполнить только после успешного пуша соответствующих коммитов на GitHub.
+`realized` — план реализован и запушен на GitHub.
 
 ## Проблема
 
@@ -90,4 +89,4 @@ perf(views): duplicate views from first created view instead of creating from sc
 
 ## Следующий шаг
 
-Реализовать `Duplicate...` методы в `ViewService` и интегрировать их в `OrchestratorService`.
+Реализовано. Проверить на реальном проекте, что время фазы создания видов сократилось.
