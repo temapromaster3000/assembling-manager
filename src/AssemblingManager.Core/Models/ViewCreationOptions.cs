@@ -19,5 +19,9 @@ namespace AssemblingManager.Core.Models
         public int? View3DTemplateId { get; set; }
         public int? MasterScheduleId { get; set; }
         public int? ScheduleViewTemplateId { get; set; }
+
+        public int? PlanViewFamilyTypeId { get; set; }
+        public int? SectionViewFamilyTypeId { get; set; }
+        public int? View3DViewFamilyTypeId { get; set; }
     }
 }
