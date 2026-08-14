@@ -288,13 +288,11 @@
                         <RadioButton x:Name="RadioButtonScheduleYes"
                                      Content="Да"
                                      GroupName="ScheduleMode"
-                                     IsChecked="False"
                                      Checked="ScheduleMode_Changed"
                                      Unchecked="ScheduleMode_Changed" />
                         <RadioButton x:Name="RadioButtonScheduleNo"
                                      Content="Нет"
                                      GroupName="ScheduleMode"
-                                     IsChecked="True"
                                      Margin="10,0,0,0"
                                      Checked="ScheduleMode_Changed"
                                      Unchecked="ScheduleMode_Changed" />

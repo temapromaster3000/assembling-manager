@@ -30,6 +30,7 @@ namespace AssemblingManager.Revit.Views
         private bool _groupingParameterMissing;
         private bool _groupingParameterTypeBinding;
         private int _missingCategoriesCount;
+        private bool _isInitializing;
 
         public MainWindow(
             int assemblyCount,
@@ -47,6 +48,8 @@ namespace AssemblingManager.Revit.Views
             _scheduleService = new ScheduleService();
             _viewFamilyTypeService = new ViewFamilyTypeService();
 
+            _isInitializing = true;
+
             InitializeComponent();
 
             PopupSectionOptions.PlacementTarget = ButtonSectionOptions;
@@ -56,6 +59,9 @@ namespace AssemblingManager.Revit.Views
             InitializeTemplateComboBoxes(initialOptions);
             InitializeScheduleComboBoxes(initialOptions);
             InitializeViewFamilyTypeComboBoxes(initialOptions);
+
+            _isInitializing = false;
+
             UpdateCounter();
         }
 
@@ -187,11 +193,13 @@ namespace AssemblingManager.Revit.Views
 
         private void ParameterMode_Checked(object sender, RoutedEventArgs e)
         {
+            if (_isInitializing) return;
             UpdateParameterStatus();
         }
 
         private void ParameterMode_Unchecked(object sender, RoutedEventArgs e)
         {
+            if (_isInitializing) return;
             UpdateParameterStatus();
         }
 
@@ -299,6 +307,8 @@ namespace AssemblingManager.Revit.Views
 
         private void CheckBoxSections_Click(object sender, RoutedEventArgs e)
         {
+            if (_isInitializing) return;
+
             if (_isUpdatingSectionsState) return;
 
             _isUpdatingSectionsState = true;
@@ -328,6 +338,8 @@ namespace AssemblingManager.Revit.Views
 
         private void IndividualCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
         {
+            if (_isInitializing) return;
+
             if (sender != CheckBoxPlan && sender != CheckBox3D)
             {
                 UpdateSectionsCheckBoxState();
@@ -338,11 +350,13 @@ namespace AssemblingManager.Revit.Views
 
         private void ComboBoxMasterSchedule_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (_isInitializing) return;
             UpdateCounter();
         }
 
         private void ScheduleMode_Changed(object sender, RoutedEventArgs e)
         {
+            if (_isInitializing) return;
             UpdateCounter();
         }
 
