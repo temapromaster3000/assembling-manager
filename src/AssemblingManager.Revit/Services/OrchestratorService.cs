@@ -154,7 +154,6 @@ namespace AssemblingManager.Revit.Services
                     if (options.CreateFrontView)
                     {
                         string suffix = ViewService.FrontViewSuffix;
-                        View master = viewMasters.ContainsKey(suffix) ? viewMasters[suffix] : null;
                         (View view, bool createdOrReplaced) = CreateOrReplaceView(
                             doc,
                             assembly.Name,
@@ -162,17 +161,14 @@ namespace AssemblingManager.Revit.Services
                             options.SectionTemplateId,
                             () => _viewService.CreateFrontView(doc, assembly.Name, bbox),
                             m => _viewService.DuplicateSectionView(doc, (ViewSection)m, assembly.Name, ViewService.FrontViewSuffix, bbox),
-                            master,
+                            null,
                             resolution,
                             result);
-                        if (createdOrReplaced && !viewMasters.ContainsKey(suffix))
-                            viewMasters[suffix] = view;
                     }
 
                     if (options.CreateBackView)
                     {
                         string suffix = ViewService.BackViewSuffix;
-                        View master = viewMasters.ContainsKey(suffix) ? viewMasters[suffix] : null;
                         (View view, bool createdOrReplaced) = CreateOrReplaceView(
                             doc,
                             assembly.Name,
@@ -180,17 +176,14 @@ namespace AssemblingManager.Revit.Services
                             options.SectionTemplateId,
                             () => _viewService.CreateBackView(doc, assembly.Name, bbox),
                             m => _viewService.DuplicateSectionView(doc, (ViewSection)m, assembly.Name, ViewService.BackViewSuffix, bbox),
-                            master,
+                            null,
                             resolution,
                             result);
-                        if (createdOrReplaced && !viewMasters.ContainsKey(suffix))
-                            viewMasters[suffix] = view;
                     }
 
                     if (options.CreateRightView)
                     {
                         string suffix = ViewService.RightViewSuffix;
-                        View master = viewMasters.ContainsKey(suffix) ? viewMasters[suffix] : null;
                         (View view, bool createdOrReplaced) = CreateOrReplaceView(
                             doc,
                             assembly.Name,
@@ -198,17 +191,14 @@ namespace AssemblingManager.Revit.Services
                             options.SectionTemplateId,
                             () => _viewService.CreateRightView(doc, assembly.Name, bbox),
                             m => _viewService.DuplicateSectionView(doc, (ViewSection)m, assembly.Name, ViewService.RightViewSuffix, bbox),
-                            master,
+                            null,
                             resolution,
                             result);
-                        if (createdOrReplaced && !viewMasters.ContainsKey(suffix))
-                            viewMasters[suffix] = view;
                     }
 
                     if (options.CreateLeftView)
                     {
                         string suffix = ViewService.LeftViewSuffix;
-                        View master = viewMasters.ContainsKey(suffix) ? viewMasters[suffix] : null;
                         (View view, bool createdOrReplaced) = CreateOrReplaceView(
                             doc,
                             assembly.Name,
@@ -216,11 +206,9 @@ namespace AssemblingManager.Revit.Services
                             options.SectionTemplateId,
                             () => _viewService.CreateLeftView(doc, assembly.Name, bbox),
                             m => _viewService.DuplicateSectionView(doc, (ViewSection)m, assembly.Name, ViewService.LeftViewSuffix, bbox),
-                            master,
+                            null,
                             resolution,
                             result);
-                        if (createdOrReplaced && !viewMasters.ContainsKey(suffix))
-                            viewMasters[suffix] = view;
                     }
 
                     if (options.Create3D)
@@ -259,12 +247,18 @@ namespace AssemblingManager.Revit.Services
 
             foreach (AssemblyInstance assembly in assemblies)
             {
-                ParameterFilterElement filter = _filterService.CreateAssemblyFilter(doc, parameterId, assembly.Name, allCategories);
+                ParameterFilterElement assemblyFilter = _filterService.CreateAssemblyFilter(doc, parameterId, assembly.Name, allCategories);
+                ParameterFilterElement sectionMarkFilter = _filterService.CreateSectionMarkFilter(doc, assembly.Name);
 
                 List<View> allAssemblyViews = _viewService.GetExistingAssemblyViews(doc, assembly.Name);
                 foreach (View view in allAssemblyViews)
                 {
-                    _filterService.ApplyFilterToView(view, filter.Id);
+                    _filterService.ApplyFilterToView(view, assemblyFilter.Id);
+
+                    if (view is ViewPlan)
+                    {
+                        _filterService.ApplyFilterToView(view, sectionMarkFilter.Id);
+                    }
                 }
             }
 

@@ -38,6 +38,38 @@ namespace AssemblingManager.Revit.Services
             return filter;
         }
 
+        public ParameterFilterElement CreateSectionMarkFilter(Document doc, string assemblyName)
+        {
+            if (string.IsNullOrWhiteSpace(assemblyName))
+            {
+                throw new ArgumentException("Имя сборки не может быть пустым.", nameof(assemblyName));
+            }
+
+            string filterName = $"{assemblyName}_СкрытьЧужиеРазрезы";
+
+            DeleteExistingFilter(doc, filterName);
+
+            List<ElementId> categoryIds = new List<ElementId>
+            {
+                new ElementId(BuiltInCategory.OST_Sections)
+            };
+
+            ElementId viewNameParameterId = new ElementId(BuiltInParameter.VIEW_NAME);
+
+            string filterValue = assemblyName + "_";
+
+#if REVIT2023_OR_GREATER
+            FilterRule rule = ParameterFilterRuleFactory.CreateNotContainsRule(viewNameParameterId, filterValue);
+#else
+            FilterRule rule = ParameterFilterRuleFactory.CreateNotContainsRule(viewNameParameterId, filterValue, true);
+#endif
+            ElementParameterFilter elementFilter = new ElementParameterFilter(rule);
+
+            ParameterFilterElement filter = ParameterFilterElement.Create(doc, filterName, categoryIds, elementFilter);
+
+            return filter;
+        }
+
         public void DeleteExistingFilter(Document doc, string filterName)
         {
             ParameterFilterElement existingFilter = new FilteredElementCollector(doc)
