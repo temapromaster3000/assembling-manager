@@ -40,7 +40,7 @@
                                      Unchecked="ParameterMode_Unchecked" />
 
                         <RadioButton x:Name="RadioButtonUseGrouping"
-                                     Content="Использовать &quot;ADSK_Группирование&quot;"
+                                     Content="Использовать &quot;ADSK__Группирование&quot;"
                                      GroupName="ParameterMode"
                                      HorizontalAlignment="Left"
                                      Margin="0,5,0,0"
