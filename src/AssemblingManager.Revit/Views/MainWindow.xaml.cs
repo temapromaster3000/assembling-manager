@@ -24,6 +24,7 @@ namespace AssemblingManager.Revit.Views
         private readonly ParameterService _parameterService;
         private readonly ViewTemplateService _viewTemplateService;
         private readonly ScheduleService _scheduleService;
+        private readonly ViewFamilyTypeService _viewFamilyTypeService;
         private bool _isUpdatingSectionsState;
         private bool _wasPopupOpen;
         private bool _groupingParameterMissing;
@@ -44,6 +45,7 @@ namespace AssemblingManager.Revit.Views
             _parameterService = new ParameterService();
             _viewTemplateService = new ViewTemplateService();
             _scheduleService = new ScheduleService();
+            _viewFamilyTypeService = new ViewFamilyTypeService();
 
             InitializeComponent();
 
@@ -53,6 +55,7 @@ namespace AssemblingManager.Revit.Views
             InitializeCheckBoxes(initialOptions);
             InitializeTemplateComboBoxes(initialOptions);
             InitializeScheduleComboBoxes(initialOptions);
+            InitializeViewFamilyTypeComboBoxes(initialOptions);
             UpdateCounter();
         }
 
@@ -81,7 +84,8 @@ namespace AssemblingManager.Revit.Views
             {
                 CheckBoxPlan.IsChecked = initialOptions.CreatePlan;
                 CheckBox3D.IsChecked = initialOptions.Create3D;
-                CheckBoxSchedule.IsChecked = initialOptions.CreateSchedule;
+                RadioButtonScheduleYes.IsChecked = initialOptions.CreateSchedule;
+                RadioButtonScheduleNo.IsChecked = !initialOptions.CreateSchedule;
                 CheckBoxFrontView.IsChecked = initialOptions.CreateFrontView;
                 CheckBoxBackView.IsChecked = initialOptions.CreateBackView;
                 CheckBoxRightView.IsChecked = initialOptions.CreateRightView;
@@ -91,7 +95,8 @@ namespace AssemblingManager.Revit.Views
             {
                 CheckBoxPlan.IsChecked = false;
                 CheckBox3D.IsChecked = false;
-                CheckBoxSchedule.IsChecked = false;
+                RadioButtonScheduleYes.IsChecked = false;
+                RadioButtonScheduleNo.IsChecked = true;
                 CheckBoxFrontView.IsChecked = false;
                 CheckBoxBackView.IsChecked = false;
                 CheckBoxRightView.IsChecked = false;
@@ -130,6 +135,39 @@ namespace AssemblingManager.Revit.Views
             ComboBoxMasterSchedule.ItemsSource = availableSchedules;
             ComboBoxMasterSchedule.DisplayMemberPath = "Name";
             ComboBoxMasterSchedule.SelectedItem = SelectTemplateById(availableSchedules, initialOptions?.MasterScheduleId);
+        }
+
+        private void InitializeViewFamilyTypeComboBoxes(ViewCreationOptions initialOptions)
+        {
+            List<ViewFamilyTypeItem> planTypes = _viewFamilyTypeService.GetPlanTypes(_document);
+            ComboBoxPlanType.ItemsSource = planTypes;
+            ComboBoxPlanType.DisplayMemberPath = "Name";
+            ComboBoxPlanType.SelectedItem = SelectTypeById(planTypes, initialOptions?.PlanViewFamilyTypeId);
+
+            List<ViewFamilyTypeItem> sectionTypes = _viewFamilyTypeService.GetSectionTypes(_document);
+            ComboBoxSectionType.ItemsSource = sectionTypes;
+            ComboBoxSectionType.DisplayMemberPath = "Name";
+            ComboBoxSectionType.SelectedItem = SelectTypeById(sectionTypes, initialOptions?.SectionViewFamilyTypeId);
+
+            List<ViewFamilyTypeItem> view3DTypes = _viewFamilyTypeService.GetView3DTypes(_document);
+            ComboBoxView3DType.ItemsSource = view3DTypes;
+            ComboBoxView3DType.DisplayMemberPath = "Name";
+            ComboBoxView3DType.SelectedItem = SelectTypeById(view3DTypes, initialOptions?.View3DViewFamilyTypeId);
+        }
+
+        private ViewFamilyTypeItem SelectTypeById(List<ViewFamilyTypeItem> types, int? typeId)
+        {
+            if (!typeId.HasValue)
+            {
+                return types.FirstOrDefault();
+            }
+
+            return types.FirstOrDefault(t => t.Id == typeId) ?? types.FirstOrDefault();
+        }
+
+        private int? GetSelectedTypeId(ComboBox comboBox)
+        {
+            return (comboBox.SelectedItem as ViewFamilyTypeItem)?.Id;
         }
 
         private ViewTemplateItem SelectTemplateById(List<ViewTemplateItem> templates, int? templateId)
@@ -290,7 +328,7 @@ namespace AssemblingManager.Revit.Views
 
         private void IndividualCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
         {
-            if (sender != CheckBoxPlan && sender != CheckBox3D && sender != CheckBoxSchedule)
+            if (sender != CheckBoxPlan && sender != CheckBox3D)
             {
                 UpdateSectionsCheckBoxState();
             }
@@ -299,6 +337,11 @@ namespace AssemblingManager.Revit.Views
         }
 
         private void ComboBoxMasterSchedule_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            UpdateCounter();
+        }
+
+        private void ScheduleMode_Changed(object sender, RoutedEventArgs e)
         {
             UpdateCounter();
         }
@@ -343,7 +386,7 @@ namespace AssemblingManager.Revit.Views
 
             int totalViews = _assemblyCount * selectedViewCount;
 
-            if (CheckBoxSchedule.IsChecked == true && GetSelectedTemplateId(ComboBoxMasterSchedule).HasValue)
+            if (RadioButtonScheduleYes.IsChecked == true && GetSelectedTemplateId(ComboBoxMasterSchedule).HasValue)
             {
                 totalViews += _assemblyCount;
             }
@@ -379,13 +422,17 @@ namespace AssemblingManager.Revit.Views
             int? view3DTemplateId = GetSelectedTemplateId(ComboBoxView3DTemplate);
             int? scheduleViewTemplateId = GetSelectedTemplateId(ComboBoxScheduleTemplate);
 
+            int? planViewFamilyTypeId = GetSelectedTypeId(ComboBoxPlanType);
+            int? sectionViewFamilyTypeId = GetSelectedTypeId(ComboBoxSectionType);
+            int? view3DViewFamilyTypeId = GetSelectedTypeId(ComboBoxView3DType);
+
             bool createPlan = CheckBoxPlan.IsChecked == true;
             bool createSections = CheckBoxFrontView.IsChecked == true ||
                                   CheckBoxBackView.IsChecked == true ||
                                   CheckBoxRightView.IsChecked == true ||
                                   CheckBoxLeftView.IsChecked == true;
             bool create3D = CheckBox3D.IsChecked == true;
-            bool createSchedule = CheckBoxSchedule.IsChecked == true;
+            bool createSchedule = RadioButtonScheduleYes.IsChecked == true;
             int? masterScheduleId = GetSelectedTemplateId(ComboBoxMasterSchedule);
 
             if (createSchedule && !masterScheduleId.HasValue)
@@ -462,7 +509,10 @@ namespace AssemblingManager.Revit.Views
                 PlanTemplateId = planTemplateId,
                 SectionTemplateId = sectionTemplateId,
                 View3DTemplateId = view3DTemplateId,
-                ScheduleViewTemplateId = scheduleViewTemplateId
+                ScheduleViewTemplateId = scheduleViewTemplateId,
+                PlanViewFamilyTypeId = planViewFamilyTypeId,
+                SectionViewFamilyTypeId = sectionViewFamilyTypeId,
+                View3DViewFamilyTypeId = view3DViewFamilyTypeId
             };
 
             if (blockedViewTypes.Contains("План"))

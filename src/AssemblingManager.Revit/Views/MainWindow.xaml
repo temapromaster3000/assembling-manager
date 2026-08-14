@@ -1,11 +1,22 @@
 <Window x:Class="AssemblingManager.Revit.Views.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:AssemblingManager.Revit.Views"
         Title="Assembling Manager"
-        Width="600"
+        Width="760"
         SizeToContent="Height"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <local:NullableBooleanToBooleanConverter x:Key="NullableBoolConverter" />
+        <Style x:Key="DisabledGrayTextBlock" TargetType="TextBlock">
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="Gray" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -16,7 +27,7 @@
         <Grid Grid.Row="0"
               Margin="0,0,0,10">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="260" />
                 <ColumnDefinition Width="10" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
@@ -65,26 +76,62 @@
             </GroupBox>
 
             <GroupBox Grid.Column="2"
-                      Header="Виды для создания"
                       Height="150"
-                      Padding="10">
-                <StackPanel>
+                      Padding="5">
+                <GroupBox.Header>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.2*" />
+                            <ColumnDefinition Width="2*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Виды" />
+                        <TextBlock Grid.Column="1"
+                                   Text="Типы видов"
+                                   Margin="10,0,0,0" />
+                    </Grid>
+                </GroupBox.Header>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.2*" />
+                        <ColumnDefinition Width="2*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.ColumnSpan="2"
+                            Grid.RowSpan="3"
+                            HorizontalAlignment="Center"
+                            Width="1"
+                            BorderBrush="Gray"
+                            BorderThickness="1,0,0,0" />
+
                     <CheckBox x:Name="CheckBoxPlan"
                               Content="План"
+                              VerticalAlignment="Center"
                               HorizontalAlignment="Left"
                               IsChecked="False"
                               Checked="IndividualCheckBox_CheckedChanged"
                               Unchecked="IndividualCheckBox_CheckedChanged" />
 
-                    <StackPanel Orientation="Horizontal"
-                                VerticalAlignment="Center"
-                                Margin="0,5,0,0">
+                    <ComboBox Grid.Column="1"
+                              x:Name="ComboBoxPlanType"
+                              Margin="10,0,0,0"
+                              VerticalAlignment="Center"
+                              IsEnabled="{Binding ElementName=CheckBoxPlan, Path=IsChecked}" />
+
+                    <StackPanel Grid.Row="1"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center">
                         <CheckBox x:Name="CheckBoxSections"
                                   Content="Разрезы"
                                   HorizontalAlignment="Left"
                                   IsThreeState="True"
                                   IsChecked="False"
-                                  Click="CheckBoxSections_Click" />
+                                  Click="CheckBoxSections_Click"
+                                  VerticalAlignment="Center" />
 
                         <Button x:Name="ButtonSectionOptions"
                                 Width="16"
@@ -143,29 +190,36 @@
                         </Popup>
                     </StackPanel>
 
-                    <CheckBox x:Name="CheckBox3D"
+                    <ComboBox Grid.Row="1"
+                              Grid.Column="1"
+                              x:Name="ComboBoxSectionType"
+                              Margin="10,0,0,0"
+                              VerticalAlignment="Center"
+                              IsEnabled="{Binding ElementName=CheckBoxSections, Path=IsChecked, Converter={StaticResource NullableBoolConverter}}" />
+
+                    <CheckBox Grid.Row="2"
+                              x:Name="CheckBox3D"
                               Content="3D вид"
+                              VerticalAlignment="Center"
                               HorizontalAlignment="Left"
                               IsChecked="False"
-                              Margin="0,5,0,0"
                               Checked="IndividualCheckBox_CheckedChanged"
                               Unchecked="IndividualCheckBox_CheckedChanged" />
 
-                    <CheckBox x:Name="CheckBoxSchedule"
-                              Content="Спецификация"
-                              HorizontalAlignment="Left"
-                              IsChecked="False"
-                              Margin="0,5,0,0"
-                              Checked="IndividualCheckBox_CheckedChanged"
-                              Unchecked="IndividualCheckBox_CheckedChanged" />
-                </StackPanel>
+                    <ComboBox Grid.Row="2"
+                              Grid.Column="1"
+                              x:Name="ComboBoxView3DType"
+                              Margin="10,0,0,0"
+                              VerticalAlignment="Center"
+                              IsEnabled="{Binding ElementName=CheckBox3D, Path=IsChecked}" />
+                </Grid>
             </GroupBox>
         </Grid>
 
         <Grid Grid.Row="1"
               Margin="0,0,0,10">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="260" />
                 <ColumnDefinition Width="10" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
@@ -185,54 +239,91 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Text="План:" />
-                    <ComboBox Grid.Row="1" x:Name="ComboBoxPlanTemplate" />
+                    <TextBlock Grid.Row="0"
+                               Text="План:"
+                               IsEnabled="{Binding ElementName=CheckBoxPlan, Path=IsChecked}"
+                               Style="{StaticResource DisabledGrayTextBlock}" />
+                    <ComboBox Grid.Row="1"
+                              x:Name="ComboBoxPlanTemplate"
+                              IsEnabled="{Binding ElementName=CheckBoxPlan, Path=IsChecked}" />
 
-                    <TextBlock Grid.Row="2" Text="Разрезы:" Margin="0,4,0,0" />
-                    <ComboBox Grid.Row="3" x:Name="ComboBoxSectionTemplate" />
+                    <TextBlock Grid.Row="2"
+                               Text="Разрезы:"
+                               Margin="0,4,0,0"
+                               IsEnabled="{Binding ElementName=CheckBoxSections, Path=IsChecked, Converter={StaticResource NullableBoolConverter}}"
+                               Style="{StaticResource DisabledGrayTextBlock}" />
+                    <ComboBox Grid.Row="3"
+                              x:Name="ComboBoxSectionTemplate"
+                              IsEnabled="{Binding ElementName=CheckBoxSections, Path=IsChecked, Converter={StaticResource NullableBoolConverter}}" />
 
-                    <TextBlock Grid.Row="4" Text="3D вид:" Margin="0,4,0,0" />
-                    <ComboBox Grid.Row="5" x:Name="ComboBoxView3DTemplate" />
+                    <TextBlock Grid.Row="4"
+                               Text="3D вид:"
+                               Margin="0,4,0,0"
+                               IsEnabled="{Binding ElementName=CheckBox3D, Path=IsChecked}"
+                               Style="{StaticResource DisabledGrayTextBlock}" />
+                    <ComboBox Grid.Row="5"
+                              x:Name="ComboBoxView3DTemplate"
+                              IsEnabled="{Binding ElementName=CheckBox3D, Path=IsChecked}" />
                 </Grid>
             </GroupBox>
 
             <GroupBox Grid.Column="2"
-                      x:Name="GroupBoxSchedule"
                       Header="Спецификация"
                       Height="170"
                       Padding="10"
-                      VerticalAlignment="Top"
-                      IsEnabled="{Binding ElementName=CheckBoxSchedule, Path=IsChecked}">
-                <GroupBox.Style>
-                    <Style TargetType="GroupBox">
-                        <Setter Property="Foreground"
-                                Value="Black" />
-                        <Style.Triggers>
-                            <Trigger Property="IsEnabled"
-                                    Value="False">
-                                <Setter Property="Foreground"
-                                        Value="Gray" />
-                            </Trigger>
-                        </Style.Triggers>
-                    </Style>
-                </GroupBox.Style>
+                      VerticalAlignment="Top">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Text="Мастер-спецификация:" />
-                    <ComboBox Grid.Row="1"
-                              x:Name="ComboBoxMasterSchedule"
-                              SelectionChanged="ComboBoxMasterSchedule_SelectionChanged" />
+                    <TextBlock Grid.Row="0"
+                               Text="Спецификация для каждой сборки:" />
 
-                    <TextBlock Grid.Row="2" Text="Шаблон вида:" Margin="0,4,0,0" />
-                    <ComboBox Grid.Row="3" x:Name="ComboBoxScheduleTemplate" />
+                    <StackPanel Grid.Row="1"
+                                Orientation="Horizontal"
+                                Margin="0,5,0,0">
+                        <RadioButton x:Name="RadioButtonScheduleYes"
+                                     Content="Да"
+                                     GroupName="ScheduleMode"
+                                     IsChecked="False"
+                                     Checked="ScheduleMode_Changed"
+                                     Unchecked="ScheduleMode_Changed" />
+                        <RadioButton x:Name="RadioButtonScheduleNo"
+                                     Content="Нет"
+                                     GroupName="ScheduleMode"
+                                     IsChecked="True"
+                                     Margin="10,0,0,0"
+                                     Checked="ScheduleMode_Changed"
+                                     Unchecked="ScheduleMode_Changed" />
+                    </StackPanel>
+
+                    <Grid Grid.Row="2"
+                          Margin="0,10,0,0"
+                          IsEnabled="{Binding ElementName=RadioButtonScheduleYes, Path=IsChecked}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0"
+                                   Text="Мастер-спецификация:"
+                                   Style="{StaticResource DisabledGrayTextBlock}" />
+                        <ComboBox Grid.Row="1"
+                                  x:Name="ComboBoxMasterSchedule"
+                                  SelectionChanged="ComboBoxMasterSchedule_SelectionChanged" />
+
+                        <TextBlock Grid.Row="2"
+                                   Text="Шаблон вида:"
+                                   Margin="0,4,0,0"
+                                   Style="{StaticResource DisabledGrayTextBlock}" />
+                        <ComboBox Grid.Row="3"
+                                  x:Name="ComboBoxScheduleTemplate" />
+                    </Grid>
                 </Grid>
             </GroupBox>
         </Grid>
