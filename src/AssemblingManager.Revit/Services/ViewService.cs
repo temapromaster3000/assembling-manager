@@ -162,14 +162,112 @@ namespace AssemblingManager.Revit.Services
 
         private const double MillimetersToFeet = 1.0 / 304.8;
 
-        public ViewPlan CreatePlanView(Document doc, string assemblyName, BoundingBoxXYZ bbox, ElementId levelId)
+        public ViewPlan CreatePlanView(Document doc, string assemblyName, BoundingBoxXYZ bbox, ElementId levelId, int? viewFamilyTypeId = null)
         {
-            ElementId viewFamilyTypeId = GetViewFamilyTypeId(doc, ViewFamily.FloorPlan);
+            ElementId selectedViewFamilyTypeId = ResolveViewFamilyTypeId(doc, ViewFamily.FloorPlan, viewFamilyTypeId);
 
-            ViewPlan viewPlan = ViewPlan.Create(doc, viewFamilyTypeId, levelId);
+            ViewPlan viewPlan = ViewPlan.Create(doc, selectedViewFamilyTypeId, levelId);
             ApplyPlanViewGeometry(doc, viewPlan, assemblyName, bbox, levelId);
 
             return viewPlan;
+        }
+
+        public ViewSection CreateFrontView(Document doc, string assemblyName, BoundingBoxXYZ bbox, int? viewFamilyTypeId = null)
+        {
+            ElementId selectedViewFamilyTypeId = ResolveViewFamilyTypeId(doc, ViewFamily.Section, viewFamilyTypeId);
+
+            double dx = bbox.Max.X - bbox.Min.X;
+            double dy = bbox.Max.Y - bbox.Min.Y;
+            double dz = bbox.Max.Z - bbox.Min.Z;
+
+            return CreateSectionView(
+                doc,
+                selectedViewFamilyTypeId,
+                assemblyName,
+                bbox,
+                FrontViewSuffix,
+                -XYZ.BasisX,
+                XYZ.BasisZ,
+                XYZ.BasisY,
+                dx,
+                dz,
+                dy);
+        }
+
+        public ViewSection CreateBackView(Document doc, string assemblyName, BoundingBoxXYZ bbox, int? viewFamilyTypeId = null)
+        {
+            ElementId selectedViewFamilyTypeId = ResolveViewFamilyTypeId(doc, ViewFamily.Section, viewFamilyTypeId);
+
+            double dx = bbox.Max.X - bbox.Min.X;
+            double dy = bbox.Max.Y - bbox.Min.Y;
+            double dz = bbox.Max.Z - bbox.Min.Z;
+
+            return CreateSectionView(
+                doc,
+                selectedViewFamilyTypeId,
+                assemblyName,
+                bbox,
+                BackViewSuffix,
+                XYZ.BasisX,
+                XYZ.BasisZ,
+                -XYZ.BasisY,
+                dx,
+                dz,
+                dy);
+        }
+
+        public ViewSection CreateRightView(Document doc, string assemblyName, BoundingBoxXYZ bbox, int? viewFamilyTypeId = null)
+        {
+            ElementId selectedViewFamilyTypeId = ResolveViewFamilyTypeId(doc, ViewFamily.Section, viewFamilyTypeId);
+
+            double dx = bbox.Max.X - bbox.Min.X;
+            double dy = bbox.Max.Y - bbox.Min.Y;
+            double dz = bbox.Max.Z - bbox.Min.Z;
+
+            return CreateSectionView(
+                doc,
+                selectedViewFamilyTypeId,
+                assemblyName,
+                bbox,
+                RightViewSuffix,
+                -XYZ.BasisY,
+                XYZ.BasisZ,
+                -XYZ.BasisX,
+                dy,
+                dz,
+                dx);
+        }
+
+        public ViewSection CreateLeftView(Document doc, string assemblyName, BoundingBoxXYZ bbox, int? viewFamilyTypeId = null)
+        {
+            ElementId selectedViewFamilyTypeId = ResolveViewFamilyTypeId(doc, ViewFamily.Section, viewFamilyTypeId);
+
+            double dx = bbox.Max.X - bbox.Min.X;
+            double dy = bbox.Max.Y - bbox.Min.Y;
+            double dz = bbox.Max.Z - bbox.Min.Z;
+
+            return CreateSectionView(
+                doc,
+                selectedViewFamilyTypeId,
+                assemblyName,
+                bbox,
+                LeftViewSuffix,
+                XYZ.BasisY,
+                XYZ.BasisZ,
+                XYZ.BasisX,
+                dy,
+                dz,
+                dx);
+        }
+
+        public View3D Create3DView(Document doc, string assemblyName, BoundingBoxXYZ bbox, int? viewFamilyTypeId = null)
+        {
+            ElementId selectedViewFamilyTypeId = ResolveViewFamilyTypeId(doc, ViewFamily.ThreeDimensional, viewFamilyTypeId);
+
+            View3D view3D = View3D.CreateIsometric(doc, selectedViewFamilyTypeId);
+            Apply3DViewGeometry(view3D, assemblyName, bbox);
+
+            return view3D;
         }
 
         private void ApplyPlanViewGeometry(Document doc, ViewPlan viewPlan, string assemblyName, BoundingBoxXYZ bbox, ElementId levelId)
@@ -275,111 +373,13 @@ namespace AssemblingManager.Revit.Services
             return viewSection;
         }
 
-        public ViewSection CreateFrontView(Document doc, string assemblyName, BoundingBoxXYZ bbox)
-        {
-            ElementId viewFamilyTypeId = GetViewFamilyTypeId(doc, ViewFamily.Section);
-
-            double dx = bbox.Max.X - bbox.Min.X;
-            double dy = bbox.Max.Y - bbox.Min.Y;
-            double dz = bbox.Max.Z - bbox.Min.Z;
-
-            return CreateSectionView(
-                doc,
-                viewFamilyTypeId,
-                assemblyName,
-                bbox,
-                FrontViewSuffix,
-                -XYZ.BasisX,
-                XYZ.BasisZ,
-                XYZ.BasisY,
-                dx,
-                dz,
-                dy);
-        }
-
-        public ViewSection CreateBackView(Document doc, string assemblyName, BoundingBoxXYZ bbox)
-        {
-            ElementId viewFamilyTypeId = GetViewFamilyTypeId(doc, ViewFamily.Section);
-
-            double dx = bbox.Max.X - bbox.Min.X;
-            double dy = bbox.Max.Y - bbox.Min.Y;
-            double dz = bbox.Max.Z - bbox.Min.Z;
-
-            return CreateSectionView(
-                doc,
-                viewFamilyTypeId,
-                assemblyName,
-                bbox,
-                BackViewSuffix,
-                XYZ.BasisX,
-                XYZ.BasisZ,
-                -XYZ.BasisY,
-                dx,
-                dz,
-                dy);
-        }
-
-        public ViewSection CreateRightView(Document doc, string assemblyName, BoundingBoxXYZ bbox)
-        {
-            ElementId viewFamilyTypeId = GetViewFamilyTypeId(doc, ViewFamily.Section);
-
-            double dx = bbox.Max.X - bbox.Min.X;
-            double dy = bbox.Max.Y - bbox.Min.Y;
-            double dz = bbox.Max.Z - bbox.Min.Z;
-
-            return CreateSectionView(
-                doc,
-                viewFamilyTypeId,
-                assemblyName,
-                bbox,
-                RightViewSuffix,
-                -XYZ.BasisY,
-                XYZ.BasisZ,
-                -XYZ.BasisX,
-                dy,
-                dz,
-                dx);
-        }
-
-        public ViewSection CreateLeftView(Document doc, string assemblyName, BoundingBoxXYZ bbox)
-        {
-            ElementId viewFamilyTypeId = GetViewFamilyTypeId(doc, ViewFamily.Section);
-
-            double dx = bbox.Max.X - bbox.Min.X;
-            double dy = bbox.Max.Y - bbox.Min.Y;
-            double dz = bbox.Max.Z - bbox.Min.Z;
-
-            return CreateSectionView(
-                doc,
-                viewFamilyTypeId,
-                assemblyName,
-                bbox,
-                LeftViewSuffix,
-                XYZ.BasisY,
-                XYZ.BasisZ,
-                XYZ.BasisX,
-                dy,
-                dz,
-                dx);
-        }
-
-        public View3D Create3DView(Document doc, string assemblyName, BoundingBoxXYZ bbox)
-        {
-            ElementId viewFamilyTypeId = GetViewFamilyTypeId(doc, ViewFamily.ThreeDimensional);
-
-            View3D view3D = View3D.CreateIsometric(doc, viewFamilyTypeId);
-            Apply3DViewGeometry(view3D, assemblyName, bbox);
-
-            return view3D;
-        }
-
         private void Apply3DViewGeometry(View3D view3D, string assemblyName, BoundingBoxXYZ bbox)
         {
             view3D.Name = assemblyName + View3DSuffix;
             view3D.SetSectionBox(bbox);
         }
 
-        public ViewPlan DuplicatePlanView(Document doc, ViewPlan source, string assemblyName, BoundingBoxXYZ bbox, ElementId levelId)
+        public ViewPlan DuplicatePlanView(Document doc, ViewPlan source, string assemblyName, BoundingBoxXYZ bbox, ElementId levelId, int? viewFamilyTypeId = null)
         {
             if (!source.CanViewBeDuplicated(ViewDuplicateOption.Duplicate))
             {
@@ -394,10 +394,16 @@ namespace AssemblingManager.Revit.Services
             }
 
             ApplyPlanViewGeometry(doc, viewPlan, assemblyName, bbox, levelId);
+
+            if (viewFamilyTypeId.HasValue)
+            {
+                ChangeViewFamilyType(viewPlan, ViewFamily.FloorPlan, viewFamilyTypeId.Value);
+            }
+
             return viewPlan;
         }
 
-        public View3D Duplicate3DView(Document doc, View3D source, string assemblyName, BoundingBoxXYZ bbox)
+        public View3D Duplicate3DView(Document doc, View3D source, string assemblyName, BoundingBoxXYZ bbox, int? viewFamilyTypeId = null)
         {
             if (!source.CanViewBeDuplicated(ViewDuplicateOption.Duplicate))
             {
@@ -412,10 +418,16 @@ namespace AssemblingManager.Revit.Services
             }
 
             Apply3DViewGeometry(view3D, assemblyName, bbox);
+
+            if (viewFamilyTypeId.HasValue)
+            {
+                ChangeViewFamilyType(view3D, ViewFamily.ThreeDimensional, viewFamilyTypeId.Value);
+            }
+
             return view3D;
         }
 
-        public ViewSection DuplicateSectionView(Document doc, ViewSection source, string assemblyName, string suffix, BoundingBoxXYZ bbox)
+        public ViewSection DuplicateSectionView(Document doc, ViewSection source, string assemblyName, string suffix, BoundingBoxXYZ bbox, int? viewFamilyTypeId = null)
         {
             if (!source.CanViewBeDuplicated(ViewDuplicateOption.Duplicate))
             {
@@ -432,7 +444,30 @@ namespace AssemblingManager.Revit.Services
             BoundingBoxXYZ cropBox = CalculateSectionCropBoxFromSourceTransform(source.CropBox.Transform, bbox);
             viewSection.CropBox = cropBox;
             viewSection.Name = assemblyName + suffix;
+
+            if (viewFamilyTypeId.HasValue)
+            {
+                ChangeViewFamilyType(viewSection, ViewFamily.Section, viewFamilyTypeId.Value);
+            }
+
             return viewSection;
+        }
+
+        private void ChangeViewFamilyType(View view, ViewFamily expectedFamily, int viewFamilyTypeId)
+        {
+            try
+            {
+                ElementId selectedTypeId = ResolveViewFamilyTypeId(view.Document, expectedFamily, viewFamilyTypeId);
+                if (selectedTypeId != null && view.GetTypeId() != selectedTypeId)
+                {
+                    view.ChangeTypeId(selectedTypeId);
+                    Logger.Debug($"Changed type of view '{view.Name}' to {selectedTypeId}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Could not change type of view '{view.Name}': {ex.Message}");
+            }
         }
 
         private BoundingBoxXYZ CalculateSectionCropBoxFromSourceTransform(Transform sourceTransform, BoundingBoxXYZ targetBBox)
@@ -490,8 +525,41 @@ namespace AssemblingManager.Revit.Services
             }
         }
 
-        private ElementId GetViewFamilyTypeId(Document doc, ViewFamily viewFamily)
+        private ElementId ResolveViewFamilyTypeId(Document doc, ViewFamily viewFamily, int? viewFamilyTypeId)
         {
+            if (viewFamilyTypeId.HasValue)
+            {
+#pragma warning disable CS0618
+                ElementId selectedId = new ElementId(viewFamilyTypeId.Value);
+#pragma warning restore CS0618
+                ViewFamilyType selectedType = doc.GetElement(selectedId) as ViewFamilyType;
+                if (selectedType != null && selectedType.ViewFamily == viewFamily)
+                {
+                    return selectedId;
+                }
+
+                Logger.Warn($"Selected view family type {viewFamilyTypeId.Value} is not valid for {viewFamily}. Using default.");
+            }
+
+            return new FilteredElementCollector(doc)
+                .OfClass(typeof(ViewFamilyType))
+                .Cast<ViewFamilyType>()
+                .Where(vft => vft.ViewFamily == viewFamily)
+                .Select(vft => vft.Id)
+                .FirstOrDefault();
+        }
+
+        private ElementId ResolveViewFamilyTypeId(Document doc, ViewFamily viewFamily, ElementId selectedTypeId)
+        {
+            if (selectedTypeId != null)
+            {
+                ViewFamilyType selectedType = doc.GetElement(selectedTypeId) as ViewFamilyType;
+                if (selectedType != null && selectedType.ViewFamily == viewFamily)
+                {
+                    return selectedTypeId;
+                }
+            }
+
             return new FilteredElementCollector(doc)
                 .OfClass(typeof(ViewFamilyType))
                 .Cast<ViewFamilyType>()
