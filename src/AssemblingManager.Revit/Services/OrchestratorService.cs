@@ -259,15 +259,7 @@ namespace AssemblingManager.Revit.Services
 
             foreach (AssemblyInstance assembly in assemblies)
             {
-                ICollection<ElementId> elementIds = assemblyElements[assembly];
-                List<Category> assemblyCategories = elementIds
-                    .Select(id => doc.GetElement(id))
-                    .Where(e => e != null && e.Category != null)
-                    .Select(e => e.Category)
-                    .Distinct()
-                    .ToList();
-
-                ParameterFilterElement filter = _filterService.CreateAssemblyFilter(doc, parameterId, assembly.Name, assemblyCategories);
+                ParameterFilterElement filter = _filterService.CreateAssemblyFilter(doc, parameterId, assembly.Name, allCategories);
 
                 List<View> allAssemblyViews = _viewService.GetExistingAssemblyViews(doc, assembly.Name);
                 foreach (View view in allAssemblyViews)
