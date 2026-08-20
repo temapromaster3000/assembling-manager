@@ -61,6 +61,40 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="GroupBoxHeader" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+        <Style x:Key="PrimaryButton" TargetType="Button">
+            <Setter Property="Background" Value="#FF0078D4" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="3"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#FF0063B1" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#FF004E8C" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#FFD0D7DE" />
+                    <Setter Property="Foreground" Value="#FF9AA4AF" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
     <Grid Margin="20">
         <Grid.RowDefinitions>
@@ -78,9 +112,12 @@
             </Grid.ColumnDefinitions>
 
             <GroupBox Grid.Column="0"
-                      Header="Параметр для фильтра"
-                      Height="150"
+                      Height="135"
                       Padding="10">
+                <GroupBox.Header>
+                    <TextBlock Text="Параметр для фильтра"
+                               Style="{StaticResource GroupBoxHeader}" />
+                </GroupBox.Header>
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -122,10 +159,10 @@
 
             <GroupBox Grid.Column="2"
                       Style="{StaticResource SplitViewsGroupBox}"
+                      Height="135"
                       Padding="0">
                 <GroupBox.Header>
-                    <Grid Background="{x:Static SystemColors.WindowBrush}"
-                          HorizontalAlignment="Left">
+                    <Grid HorizontalAlignment="Left">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="93" />
                             <ColumnDefinition Width="21" />
@@ -134,10 +171,14 @@
 
                         <TextBlock Grid.Column="0"
                                    Text="Виды"
+                                   Style="{StaticResource GroupBoxHeader}"
+                                   Background="{x:Static SystemColors.WindowBrush}"
                                    HorizontalAlignment="Left" />
 
                         <TextBlock Grid.Column="2"
                                    Text="Типы видов"
+                                   Style="{StaticResource GroupBoxHeader}"
+                                   Background="{x:Static SystemColors.WindowBrush}"
                                    Margin="1.5,0,0,0" />
                     </Grid>
                 </GroupBox.Header>
@@ -193,30 +234,87 @@
                                   VerticalAlignment="Center" />
 
                         <Button x:Name="ButtonSectionOptions"
-                                Width="16"
+                                Width="18"
                                 Height="16"
                                 Margin="5,0,0,0"
                                 BorderThickness="0"
                                 Background="Transparent"
+                                ToolTip="Направления разрезов"
                                 Click="ButtonSectionOptions_Click"
                                 PreviewMouseDown="ButtonSectionOptions_PreviewMouseDown"
                                 VerticalAlignment="Center"
                                 Padding="0">
-                            <TextBlock Text="&#xE011;"
-                                       FontFamily="Segoe MDL2 Assets"
-                                       FontSize="12"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center" />
+                            <Path Data="M 0,0 L 4,3.5 L 8,0"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center">
+                                <Path.Style>
+                                    <Style TargetType="Path">
+                                        <Setter Property="Stroke" Value="#FF444444" />
+                                        <Setter Property="StrokeThickness" Value="1.6" />
+                                        <Setter Property="StrokeStartLineCap" Value="Round" />
+                                        <Setter Property="StrokeEndLineCap" Value="Round" />
+                                        <Setter Property="StrokeLineJoin" Value="Round" />
+                                        <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+                                        <Setter Property="RenderTransform">
+                                            <Setter.Value>
+                                                <RotateTransform Angle="0" />
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsOpen, ElementName=PopupSectionOptions}"
+                                                         Value="True">
+                                                <Setter Property="RenderTransform">
+                                                    <Setter.Value>
+                                                        <RotateTransform Angle="180" />
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsMouseOver, ElementName=ButtonSectionOptions}"
+                                                         Value="True">
+                                                <Setter Property="Stroke" Value="#FF111111" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Path.Style>
+                            </Path>
                         </Button>
 
                         <Popup x:Name="PopupSectionOptions"
                                Placement="Bottom"
                                StaysOpen="False">
                             <Border Background="White"
-                                    BorderBrush="Gray"
-                                    BorderThickness="1"
-                                    Padding="10">
-                                <StackPanel>
+                            BorderBrush="Gray"
+                            BorderThickness="1"
+                            Padding="10">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Opacity" Value="0" />
+                                    <Setter Property="RenderTransformOrigin" Value="0.5,0" />
+                                    <Setter Property="RenderTransform">
+                                        <Setter.Value>
+                                            <TranslateTransform Y="-4" />
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsOpen, ElementName=PopupSectionOptions}"
+                                                     Value="True">
+                                            <DataTrigger.EnterActions>
+                                                <BeginStoryboard>
+                                                    <Storyboard>
+                                                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                         To="1"
+                                                                         Duration="0:0:0.15" />
+                                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                                         To="0"
+                                                                         Duration="0:0:0.15" />
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </DataTrigger.EnterActions>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel>
                                     <CheckBox x:Name="CheckBoxFrontView"
                                               Content="Вид спереди"
                                               IsChecked="False"
@@ -287,10 +385,13 @@
             </Grid.ColumnDefinitions>
 
             <GroupBox Grid.Column="0"
-                      Header="Шаблоны видов"
                       Height="170"
                       Padding="10"
                       VerticalAlignment="Top">
+                <GroupBox.Header>
+                    <TextBlock Text="Шаблоны видов"
+                               Style="{StaticResource GroupBoxHeader}" />
+                </GroupBox.Header>
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -303,6 +404,7 @@
 
                     <TextBlock Grid.Row="0"
                                Text="План:"
+                               ToolTip="Включите вид &quot;План&quot;, чтобы выбрать шаблон"
                                IsEnabled="{Binding ElementName=CheckBoxPlan, Path=IsChecked}"
                                Style="{StaticResource DisabledGrayTextBlock}" />
                     <ComboBox Grid.Row="1"
@@ -312,6 +414,7 @@
 
                     <TextBlock Grid.Row="2"
                                Text="Разрезы:"
+                               ToolTip="Включите разрезы, чтобы выбрать шаблон"
                                Margin="0,4,0,0"
                                IsEnabled="{Binding ElementName=CheckBoxSections, Path=IsChecked, Converter={StaticResource NullableBoolConverter}}"
                                Style="{StaticResource DisabledGrayTextBlock}" />
@@ -322,6 +425,7 @@
 
                     <TextBlock Grid.Row="4"
                                Text="3D вид:"
+                               ToolTip="Включите 3D вид, чтобы выбрать шаблон"
                                Margin="0,4,0,0"
                                IsEnabled="{Binding ElementName=CheckBox3D, Path=IsChecked}"
                                Style="{StaticResource DisabledGrayTextBlock}" />
@@ -333,46 +437,47 @@
             </GroupBox>
 
             <GroupBox Grid.Column="2"
-                      Header="Спецификация"
                       Height="170"
                       Padding="10"
                       VerticalAlignment="Top">
+                <GroupBox.Header>
+                    <Border Background="{x:Static SystemColors.WindowBrush}"
+                            Padding="3,0">
+                        <CheckBox x:Name="CheckBoxSchedule"
+                                  Content="Спецификация"
+                                  FontWeight="Bold"
+                                  ToolTip="Создавать спецификацию для каждой сборки"
+                                  IsChecked="False"
+                                  Checked="IndividualCheckBox_CheckedChanged"
+                                  Unchecked="IndividualCheckBox_CheckedChanged" />
+                    </Border>
+                </GroupBox.Header>
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="15" />
-                        <RowDefinition Height="24" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <CheckBox x:Name="CheckBoxSchedule"
-                              Grid.Row="1"
-                              Content="Спецификация для каждой сборки"
-                              HorizontalAlignment="Left"
-                              VerticalAlignment="Center"
-                              IsChecked="False"
-                              Checked="IndividualCheckBox_CheckedChanged"
-                              Unchecked="IndividualCheckBox_CheckedChanged" />
-
-                    <TextBlock Grid.Row="2"
+                    <TextBlock Grid.Row="0"
                                Text="Мастер-спецификация:"
-                               Margin="0,4,0,0"
+                               ToolTip="Включите спецификацию, чтобы выбрать мастер-спецификацию"
                                IsEnabled="{Binding ElementName=CheckBoxSchedule, Path=IsChecked}"
                                Style="{StaticResource DisabledGrayTextBlock}" />
-                    <ComboBox Grid.Row="3"
+                    <ComboBox Grid.Row="1"
                               x:Name="ComboBoxMasterSchedule"
                               Style="{StaticResource DisabledGrayComboBox}"
                               IsEnabled="{Binding ElementName=CheckBoxSchedule, Path=IsChecked}"
                               SelectionChanged="ComboBoxMasterSchedule_SelectionChanged" />
 
-                    <TextBlock Grid.Row="4"
+                    <TextBlock Grid.Row="2"
                                Text="Шаблон вида:"
+                               ToolTip="Включите спецификацию, чтобы выбрать шаблон вида"
                                Margin="0,4,0,0"
                                IsEnabled="{Binding ElementName=CheckBoxSchedule, Path=IsChecked}"
                                Style="{StaticResource DisabledGrayTextBlock}" />
-                    <ComboBox Grid.Row="5"
+                    <ComboBox Grid.Row="3"
                               x:Name="ComboBoxScheduleTemplate"
                               Style="{StaticResource DisabledGrayComboBox}"
                               IsEnabled="{Binding ElementName=CheckBoxSchedule, Path=IsChecked}" />
@@ -427,11 +532,10 @@
 
                 <Button x:Name="ButtonCreate"
                          Content="Сформировать"
-                         Width="100"
+                         Width="120"
                          IsDefault="True"
                          Click="ButtonCreate_Click"
-                         Background="Blue"
-                         Foreground="White" />
+                         Style="{StaticResource PrimaryButton}" />
             </StackPanel>
         </StackPanel>
     </Grid>
