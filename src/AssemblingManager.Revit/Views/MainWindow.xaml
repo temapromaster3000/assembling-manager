@@ -114,7 +114,7 @@
             <GroupBox Grid.Column="0"
                       Style="{StaticResource StandardGroupBox}"
                       Height="135"
-                      Padding="10">
+                      Padding="10,14,10,10">
                 <GroupBox.Header>
                     <TextBlock Text="Параметр для фильтра"
                                Style="{StaticResource GroupBoxHeader}"
@@ -202,7 +202,7 @@
                             Grid.RowSpan="4"
                             Width="1"
                             Margin="10,0"
-                            Background="Gray"
+                            Background="#FFD5DFE5"
                             BorderThickness="0" />
 
                     <CheckBox x:Name="CheckBoxPlan"
@@ -210,7 +210,7 @@
                               Content="План"
                               VerticalAlignment="Center"
                               HorizontalAlignment="Left"
-                              Margin="10,10,0,2"
+                              Margin="10,14,0,2"
                               IsChecked="False"
                               Checked="IndividualCheckBox_CheckedChanged"
                               Unchecked="IndividualCheckBox_CheckedChanged" />
@@ -389,7 +389,7 @@
             <GroupBox Grid.Column="0"
                       Style="{StaticResource StandardGroupBox}"
                       Height="170"
-                      Padding="10"
+                      Padding="10,14,10,10"
                       VerticalAlignment="Top">
                 <GroupBox.Header>
                     <TextBlock Text="Шаблоны видов"
@@ -443,7 +443,7 @@
             <GroupBox Grid.Column="2"
                       Style="{StaticResource StandardGroupBox}"
                       Height="170"
-                      Padding="10"
+                      Padding="10,14,10,10"
                       VerticalAlignment="Top">
                 <GroupBox.Header>
                     <Border Background="{x:Static SystemColors.WindowBrush}"
