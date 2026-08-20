@@ -16,6 +16,51 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+        <Style x:Key="DisabledGrayComboBox" TargetType="ComboBox">
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.5" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="SplitViewsGroupBox" TargetType="GroupBox">
+            <Setter Property="BorderBrush" Value="#FFD5DFE5" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GroupBox">
+                        <Grid SnapsToDevicePixels="True">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.Row="1"
+                                    Grid.RowSpan="2"
+                                    CornerRadius="4"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}" />
+
+                            <ContentPresenter Grid.Row="0"
+                                              Grid.RowSpan="2"
+                                              ContentSource="Header"
+                                              HorizontalAlignment="Stretch"
+                                              VerticalAlignment="Center"
+                                              Margin="12,0,6,0"
+                                              RecognizesAccessKey="True" />
+
+                            <ContentPresenter Grid.Row="1"
+                                              Grid.RowSpan="2"
+                                              Content="{TemplateBinding Content}"
+                                              Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="Stretch"
+                                              VerticalAlignment="Stretch" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
     <Grid Margin="20">
         <Grid.RowDefinitions>
@@ -274,54 +319,43 @@
                       VerticalAlignment="Top">
                 <Grid>
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="15" />
+                        <RowDefinition Height="24" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0"
-                               Text="Спецификация для каждой сборки:" />
+                    <CheckBox x:Name="CheckBoxSchedule"
+                              Grid.Row="1"
+                              Content="Спецификация для каждой сборки"
+                              HorizontalAlignment="Left"
+                              VerticalAlignment="Center"
+                              IsChecked="False"
+                              Checked="IndividualCheckBox_CheckedChanged"
+                              Unchecked="IndividualCheckBox_CheckedChanged" />
 
-                    <StackPanel Grid.Row="1"
-                                Orientation="Horizontal"
-                                Margin="0,5,0,0">
-                        <RadioButton x:Name="RadioButtonScheduleYes"
-                                     Content="Да"
-                                     GroupName="ScheduleMode"
-                                     Checked="ScheduleMode_Changed"
-                                     Unchecked="ScheduleMode_Changed" />
-                        <RadioButton x:Name="RadioButtonScheduleNo"
-                                     Content="Нет"
-                                     GroupName="ScheduleMode"
-                                     Margin="10,0,0,0"
-                                     Checked="ScheduleMode_Changed"
-                                     Unchecked="ScheduleMode_Changed" />
-                    </StackPanel>
+                    <TextBlock Grid.Row="2"
+                               Text="Мастер-спецификация:"
+                               Margin="0,4,0,0"
+                               IsEnabled="{Binding ElementName=CheckBoxSchedule, Path=IsChecked}"
+                               Style="{StaticResource DisabledGrayTextBlock}" />
+                    <ComboBox Grid.Row="3"
+                              x:Name="ComboBoxMasterSchedule"
+                              Style="{StaticResource DisabledGrayComboBox}"
+                              IsEnabled="{Binding ElementName=CheckBoxSchedule, Path=IsChecked}"
+                              SelectionChanged="ComboBoxMasterSchedule_SelectionChanged" />
 
-                    <Grid Grid.Row="2"
-                          Margin="0,10,0,0"
-                          IsEnabled="{Binding ElementName=RadioButtonScheduleYes, Path=IsChecked}">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-
-                        <TextBlock Grid.Row="0"
-                                   Text="Мастер-спецификация:"
-                                   Style="{StaticResource DisabledGrayTextBlock}" />
-                        <ComboBox Grid.Row="1"
-                                  x:Name="ComboBoxMasterSchedule"
-                                  SelectionChanged="ComboBoxMasterSchedule_SelectionChanged" />
-
-                        <TextBlock Grid.Row="2"
-                                   Text="Шаблон вида:"
-                                   Margin="0,4,0,0"
-                                   Style="{StaticResource DisabledGrayTextBlock}" />
-                        <ComboBox Grid.Row="3"
-                                  x:Name="ComboBoxScheduleTemplate" />
-                    </Grid>
+                    <TextBlock Grid.Row="4"
+                               Text="Шаблон вида:"
+                               Margin="0,4,0,0"
+                               IsEnabled="{Binding ElementName=CheckBoxSchedule, Path=IsChecked}"
+                               Style="{StaticResource DisabledGrayTextBlock}" />
+                    <ComboBox Grid.Row="5"
+                              x:Name="ComboBoxScheduleTemplate"
+                              Style="{StaticResource DisabledGrayComboBox}"
+                              IsEnabled="{Binding ElementName=CheckBoxSchedule, Path=IsChecked}" />
                 </Grid>
             </GroupBox>
         </Grid>

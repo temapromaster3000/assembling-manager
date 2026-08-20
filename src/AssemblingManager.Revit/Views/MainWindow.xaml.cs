@@ -90,8 +90,7 @@ namespace AssemblingManager.Revit.Views
             {
                 CheckBoxPlan.IsChecked = initialOptions.CreatePlan;
                 CheckBox3D.IsChecked = initialOptions.Create3D;
-                RadioButtonScheduleYes.IsChecked = initialOptions.CreateSchedule;
-                RadioButtonScheduleNo.IsChecked = !initialOptions.CreateSchedule;
+                CheckBoxSchedule.IsChecked = initialOptions.CreateSchedule;
                 CheckBoxFrontView.IsChecked = initialOptions.CreateFrontView;
                 CheckBoxBackView.IsChecked = initialOptions.CreateBackView;
                 CheckBoxRightView.IsChecked = initialOptions.CreateRightView;
@@ -101,8 +100,7 @@ namespace AssemblingManager.Revit.Views
             {
                 CheckBoxPlan.IsChecked = false;
                 CheckBox3D.IsChecked = false;
-                RadioButtonScheduleYes.IsChecked = false;
-                RadioButtonScheduleNo.IsChecked = true;
+                CheckBoxSchedule.IsChecked = false;
                 CheckBoxFrontView.IsChecked = false;
                 CheckBoxBackView.IsChecked = false;
                 CheckBoxRightView.IsChecked = false;
@@ -354,12 +352,6 @@ namespace AssemblingManager.Revit.Views
             UpdateCounter();
         }
 
-        private void ScheduleMode_Changed(object sender, RoutedEventArgs e)
-        {
-            if (_isInitializing) return;
-            UpdateCounter();
-        }
-
         private void UpdateSectionsCheckBoxState()
         {
             _isUpdatingSectionsState = true;
@@ -400,7 +392,7 @@ namespace AssemblingManager.Revit.Views
 
             int totalViews = _assemblyCount * selectedViewCount;
 
-            if (RadioButtonScheduleYes.IsChecked == true && GetSelectedTemplateId(ComboBoxMasterSchedule).HasValue)
+            if (CheckBoxSchedule.IsChecked == true && GetSelectedTemplateId(ComboBoxMasterSchedule).HasValue)
             {
                 totalViews += _assemblyCount;
             }
@@ -446,7 +438,7 @@ namespace AssemblingManager.Revit.Views
                                   CheckBoxRightView.IsChecked == true ||
                                   CheckBoxLeftView.IsChecked == true;
             bool create3D = CheckBox3D.IsChecked == true;
-            bool createSchedule = RadioButtonScheduleYes.IsChecked == true;
+            bool createSchedule = CheckBoxSchedule.IsChecked == true;
             int? masterScheduleId = GetSelectedTemplateId(ComboBoxMasterSchedule);
 
             if (createSchedule && !masterScheduleId.HasValue)
