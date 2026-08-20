@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:AssemblingManager.Revit.Views"
         Title="Assembling Manager"
-        Width="760"
+        Width="620"
         SizeToContent="Height"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen">
@@ -121,55 +121,69 @@
             </GroupBox>
 
             <GroupBox Grid.Column="2"
-                      Height="150"
-                      Padding="5">
+                      Style="{StaticResource SplitViewsGroupBox}"
+                      Padding="0">
                 <GroupBox.Header>
-                    <Grid>
+                    <Grid Background="{x:Static SystemColors.WindowBrush}"
+                          HorizontalAlignment="Left">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="1.2*" />
-                            <ColumnDefinition Width="2*" />
+                            <ColumnDefinition Width="93" />
+                            <ColumnDefinition Width="21" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="Виды" />
-                        <TextBlock Grid.Column="1"
+
+                        <TextBlock Grid.Column="0"
+                                   Text="Виды"
+                                   HorizontalAlignment="Left" />
+
+                        <TextBlock Grid.Column="2"
                                    Text="Типы видов"
-                                   Margin="10,0,0,0" />
+                                   Margin="1.5,0,0,0" />
                     </Grid>
                 </GroupBox.Header>
+
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="1.2*" />
-                        <ColumnDefinition Width="2*" />
+                        <ColumnDefinition Width="105" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <Border Grid.ColumnSpan="2"
-                            Grid.RowSpan="3"
-                            HorizontalAlignment="Center"
+                    <Border Grid.Column="1"
+                            Grid.RowSpan="4"
                             Width="1"
-                            BorderBrush="Gray"
-                            BorderThickness="1,0,0,0" />
+                            Margin="10,0"
+                            Background="Gray"
+                            BorderThickness="0" />
 
                     <CheckBox x:Name="CheckBoxPlan"
+                              Grid.Row="0"
                               Content="План"
                               VerticalAlignment="Center"
                               HorizontalAlignment="Left"
+                              Margin="10,10,0,2"
                               IsChecked="False"
                               Checked="IndividualCheckBox_CheckedChanged"
                               Unchecked="IndividualCheckBox_CheckedChanged" />
 
-                    <ComboBox Grid.Column="1"
+                    <ComboBox Grid.Row="0"
+                              Grid.Column="2"
                               x:Name="ComboBoxPlanType"
-                              Margin="10,0,0,0"
                               VerticalAlignment="Center"
+                              Margin="0,10,10,2"
+                              Style="{StaticResource DisabledGrayComboBox}"
                               IsEnabled="{Binding ElementName=CheckBoxPlan, Path=IsChecked}" />
 
                     <StackPanel Grid.Row="1"
                                 Orientation="Horizontal"
-                                VerticalAlignment="Center">
+                                VerticalAlignment="Center"
+                                Margin="10,2,0,2">
                         <CheckBox x:Name="CheckBoxSections"
                                   Content="Разрезы"
                                   HorizontalAlignment="Left"
@@ -236,26 +250,29 @@
                     </StackPanel>
 
                     <ComboBox Grid.Row="1"
-                              Grid.Column="1"
+                              Grid.Column="2"
                               x:Name="ComboBoxSectionType"
-                              Margin="10,0,0,0"
                               VerticalAlignment="Center"
+                              Margin="0,2,10,2"
+                              Style="{StaticResource DisabledGrayComboBox}"
                               IsEnabled="{Binding ElementName=CheckBoxSections, Path=IsChecked, Converter={StaticResource NullableBoolConverter}}" />
 
-                    <CheckBox Grid.Row="2"
-                              x:Name="CheckBox3D"
+                    <CheckBox x:Name="CheckBox3D"
+                              Grid.Row="2"
                               Content="3D вид"
                               VerticalAlignment="Center"
                               HorizontalAlignment="Left"
+                              Margin="10,2,0,2"
                               IsChecked="False"
                               Checked="IndividualCheckBox_CheckedChanged"
                               Unchecked="IndividualCheckBox_CheckedChanged" />
 
                     <ComboBox Grid.Row="2"
-                              Grid.Column="1"
+                              Grid.Column="2"
                               x:Name="ComboBoxView3DType"
-                              Margin="10,0,0,0"
                               VerticalAlignment="Center"
+                              Margin="0,2,10,2"
+                              Style="{StaticResource DisabledGrayComboBox}"
                               IsEnabled="{Binding ElementName=CheckBox3D, Path=IsChecked}" />
                 </Grid>
             </GroupBox>
@@ -290,6 +307,7 @@
                                Style="{StaticResource DisabledGrayTextBlock}" />
                     <ComboBox Grid.Row="1"
                               x:Name="ComboBoxPlanTemplate"
+                              Style="{StaticResource DisabledGrayComboBox}"
                               IsEnabled="{Binding ElementName=CheckBoxPlan, Path=IsChecked}" />
 
                     <TextBlock Grid.Row="2"
@@ -299,6 +317,7 @@
                                Style="{StaticResource DisabledGrayTextBlock}" />
                     <ComboBox Grid.Row="3"
                               x:Name="ComboBoxSectionTemplate"
+                              Style="{StaticResource DisabledGrayComboBox}"
                               IsEnabled="{Binding ElementName=CheckBoxSections, Path=IsChecked, Converter={StaticResource NullableBoolConverter}}" />
 
                     <TextBlock Grid.Row="4"
@@ -308,6 +327,7 @@
                                Style="{StaticResource DisabledGrayTextBlock}" />
                     <ComboBox Grid.Row="5"
                               x:Name="ComboBoxView3DTemplate"
+                              Style="{StaticResource DisabledGrayComboBox}"
                               IsEnabled="{Binding ElementName=CheckBox3D, Path=IsChecked}" />
                 </Grid>
             </GroupBox>
