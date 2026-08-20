@@ -15,7 +15,6 @@ namespace AssemblingManager.Revit.Views
         public ViewCreationOptions Options { get; private set; }
 
         private const string GroupingParameterName = "ADSK_Группирование";
-        private const string NewParameterName = "AssemblyParameter";
 
         private readonly int _assemblyCount;
         private readonly Document _document;
@@ -62,6 +61,7 @@ namespace AssemblingManager.Revit.Views
 
             _isInitializing = false;
 
+            UpdateParameterStatus();
             UpdateCounter();
         }
 
@@ -286,7 +286,7 @@ namespace AssemblingManager.Revit.Views
 
         private void ShowCreateNewParameterInfo()
         {
-            TextBlockLine1.Text = $"Будет создан общий параметр с именем '{NewParameterName}'.";
+            TextBlockLine1.Text = "Будет создан новый общий параметр.";
             TextBlockLine1.Foreground = Brushes.Orange;
             TextBlockLine2.Text = string.Empty;
             _groupingParameterMissing = false;
