@@ -8,7 +8,11 @@
         ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen">
     <Window.Resources>
-        <local:NullableBooleanToBooleanConverter x:Key="NullableBoolConverter" />
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/AssemblingManager;component/Styles/Common.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <local:NullableBooleanToBooleanConverter x:Key="NullableBoolConverter" />
         <Style x:Key="DisabledGrayTextBlock" TargetType="TextBlock">
             <Style.Triggers>
                 <Trigger Property="IsEnabled" Value="False">
@@ -64,37 +68,7 @@
         <Style x:Key="GroupBoxHeader" TargetType="TextBlock">
             <Setter Property="FontWeight" Value="Bold" />
         </Style>
-        <Style x:Key="PrimaryButton" TargetType="Button">
-            <Setter Property="Background" Value="#FF0078D4" />
-            <Setter Property="Foreground" Value="White" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="12,6" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                CornerRadius="3"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center" />
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#FF0063B1" />
-                </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#FF004E8C" />
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#FFD0D7DE" />
-                    <Setter Property="Foreground" Value="#FF9AA4AF" />
-                </Trigger>
-            </Style.Triggers>
-        </Style>
+        </ResourceDictionary>
     </Window.Resources>
     <Grid Margin="20">
         <Grid.RowDefinitions>
