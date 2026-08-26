@@ -7,6 +7,7 @@ namespace AssemblingManager.Core.Models
         public string AssemblyName { get; set; }
         public string ViewName { get; set; }
         public string ViewTypeDisplayName { get; set; }
+        public string ViewKind { get; set; }
 
         private bool _replace;
 

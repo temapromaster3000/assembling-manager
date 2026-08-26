@@ -189,13 +189,33 @@ namespace AssemblingManager.Revit.Commands
 
             foreach (ViewConflictItem item in conflictsToReplace)
             {
-                if (item.ViewName == activeView.Name)
+                if (item.ViewName == activeView.Name && KindMatchesView(item.ViewKind, activeView))
                 {
                     result.Add(item.ViewName);
                 }
             }
 
             return result;
+        }
+
+        private static bool KindMatchesView(string viewKind, View view)
+        {
+            switch (viewKind)
+            {
+                case ViewService.ViewKindPlan:
+                    return view is ViewPlan;
+                case ViewService.ViewKindFrontView:
+                case ViewService.ViewKindBackView:
+                case ViewService.ViewKindRightView:
+                case ViewService.ViewKindLeftView:
+                    return view is ViewSection;
+                case ViewService.ViewKind3D:
+                    return view is View3D;
+                case ViewService.ViewKindSchedule:
+                    return view is ViewSchedule;
+                default:
+                    return true;
+            }
         }
     }
 }

@@ -8,46 +8,39 @@ namespace AssemblingManager.Revit.Services
 {
     public class ViewService
     {
-        public const string PlanSuffix = "_План";
+        public const string PlanSuffix = "";
         public const string FrontViewSuffix = "_Вид спереди";
         public const string BackViewSuffix = "_Вид сзади";
         public const string RightViewSuffix = "_Вид справа";
         public const string LeftViewSuffix = "_Вид слева";
-        public const string View3DSuffix = "_3D";
+        public const string View3DSuffix = "";
 
         private readonly IReadOnlyList<ViewTypeInfo> _viewTypes = new List<ViewTypeInfo>
         {
-            new ViewTypeInfo(ViewType.Plan, PlanSuffix, "План"),
-            new ViewTypeInfo(ViewType.FrontView, FrontViewSuffix, "Вид спереди"),
-            new ViewTypeInfo(ViewType.BackView, BackViewSuffix, "Вид сзади"),
-            new ViewTypeInfo(ViewType.RightView, RightViewSuffix, "Вид справа"),
-            new ViewTypeInfo(ViewType.LeftView, LeftViewSuffix, "Вид слева"),
-            new ViewTypeInfo(ViewType.View3D, View3DSuffix, "3D вид")
+            new ViewTypeInfo(ViewType.Plan, PlanSuffix, "План", ViewKindPlan),
+            new ViewTypeInfo(ViewType.FrontView, FrontViewSuffix, "Вид спереди", ViewKindFrontView),
+            new ViewTypeInfo(ViewType.BackView, BackViewSuffix, "Вид сзади", ViewKindBackView),
+            new ViewTypeInfo(ViewType.RightView, RightViewSuffix, "Вид справа", ViewKindRightView),
+            new ViewTypeInfo(ViewType.LeftView, LeftViewSuffix, "Вид слева", ViewKindLeftView),
+            new ViewTypeInfo(ViewType.View3D, View3DSuffix, "3D вид", ViewKind3D)
         };
 
-        public void DeleteExistingViews(Document doc, string assemblyName)
-        {
-            string[] names =
-            {
-                assemblyName + PlanSuffix,
-                assemblyName + FrontViewSuffix,
-                assemblyName + BackViewSuffix,
-                assemblyName + RightViewSuffix,
-                assemblyName + LeftViewSuffix,
-                assemblyName + View3DSuffix
-            };
+        public const string ViewKindPlan = "Plan";
+        public const string ViewKindFrontView = "FrontView";
+        public const string ViewKindBackView = "BackView";
+        public const string ViewKindRightView = "RightView";
+        public const string ViewKindLeftView = "LeftView";
+        public const string ViewKind3D = "View3D";
+        public const string ViewKindSchedule = "Schedule";
 
-            DeleteViewsByNames(doc, names);
-        }
-
-        public void DeleteViewsByNames(Document doc, IEnumerable<string> viewNames)
+        public void DeleteViewsByNames(Document doc, IEnumerable<string> viewNames, Type viewType = null)
         {
             HashSet<string> names = new HashSet<string>(viewNames);
 
             List<ElementId> viewsToDelete = new FilteredElementCollector(doc)
                 .OfClass(typeof(View))
                 .Cast<View>()
-                .Where(v => names.Contains(v.Name))
+                .Where(v => names.Contains(v.Name) && (viewType == null || viewType.IsInstanceOfType(v)))
                 .Select(v => v.Id)
                 .ToList();
 
@@ -61,12 +54,6 @@ namespace AssemblingManager.Revit.Services
         {
             List<ViewConflictItem> conflicts = new List<ViewConflictItem>();
 
-            HashSet<string> existingNames = new HashSet<string>(
-                new FilteredElementCollector(doc)
-                    .OfClass(typeof(View))
-                    .Cast<View>()
-                    .Select(v => v.Name));
-
             foreach (AssemblyInstance assembly in assemblies)
             {
                 foreach (ViewTypeInfo viewType in _viewTypes)
@@ -77,13 +64,14 @@ namespace AssemblingManager.Revit.Services
                     }
 
                     string viewName = assembly.Name + viewType.Suffix;
-                    if (existingNames.Contains(viewName))
+                    if (ViewExists(doc, viewName, viewType.Type))
                     {
                         conflicts.Add(new ViewConflictItem
                         {
                             AssemblyName = assembly.Name,
                             ViewName = viewName,
                             ViewTypeDisplayName = viewType.DisplayName,
+                            ViewKind = viewType.Kind,
                             Replace = false
                         });
                     }
@@ -91,6 +79,35 @@ namespace AssemblingManager.Revit.Services
             }
 
             return conflicts;
+        }
+
+        private bool ViewExists(Document doc, string viewName, ViewType viewType)
+        {
+            Type expectedType;
+
+            switch (viewType)
+            {
+                case ViewType.Plan:
+                    expectedType = typeof(ViewPlan);
+                    break;
+                case ViewType.FrontView:
+                case ViewType.BackView:
+                case ViewType.RightView:
+                case ViewType.LeftView:
+                    expectedType = typeof(ViewSection);
+                    break;
+                case ViewType.View3D:
+                    expectedType = typeof(View3D);
+                    break;
+                default:
+                    expectedType = typeof(View);
+                    break;
+            }
+
+            return new FilteredElementCollector(doc)
+                .OfClass(typeof(View))
+                .Cast<View>()
+                .Any(v => v.Name == viewName && expectedType.IsInstanceOfType(v));
         }
 
         private bool IsViewTypeSelected(ViewCreationOptions options, ViewType viewType)
@@ -112,12 +129,14 @@ namespace AssemblingManager.Revit.Services
             public ViewType Type { get; }
             public string Suffix { get; }
             public string DisplayName { get; }
+            public string Kind { get; }
 
-            public ViewTypeInfo(ViewType type, string suffix, string displayName)
+            public ViewTypeInfo(ViewType type, string suffix, string displayName, string kind)
             {
                 Type = type;
                 Suffix = suffix;
                 DisplayName = displayName;
+                Kind = kind;
             }
         }
 
@@ -131,12 +150,12 @@ namespace AssemblingManager.Revit.Services
             View3D
         }
 
-        public View GetViewByName(Document doc, string viewName)
+        public View GetViewByName(Document doc, string viewName, Type viewType = null)
         {
             return new FilteredElementCollector(doc)
                 .OfClass(typeof(View))
                 .Cast<View>()
-                .FirstOrDefault(v => v.Name == viewName);
+                .FirstOrDefault(v => v.Name == viewName && (viewType == null || viewType.IsInstanceOfType(v)));
         }
 
         public List<View> GetExistingAssemblyViews(Document doc, string assemblyName)

@@ -136,7 +136,7 @@ namespace AssemblingManager.Revit.Services
                     if (options.CreatePlan)
                     {
                         string suffix = ViewService.PlanSuffix;
-                        View master = viewMasters.ContainsKey(suffix) ? viewMasters[suffix] : null;
+                        View master = viewMasters.ContainsKey(ViewService.ViewKindPlan) ? viewMasters[ViewService.ViewKindPlan] : null;
                         (View view, bool createdOrReplaced) = CreateOrReplaceView(
                             doc,
                             assembly.Name,
@@ -146,9 +146,11 @@ namespace AssemblingManager.Revit.Services
                             m => _viewService.DuplicatePlanView(doc, (ViewPlan)m, assembly.Name, bbox, levelId, options.PlanViewFamilyTypeId),
                             master,
                             resolution,
-                            result);
-                        if (createdOrReplaced && !viewMasters.ContainsKey(suffix))
-                            viewMasters[suffix] = view;
+                            result,
+                            typeof(ViewPlan),
+                            ViewService.ViewKindPlan);
+                        if (createdOrReplaced && !viewMasters.ContainsKey(ViewService.ViewKindPlan))
+                            viewMasters[ViewService.ViewKindPlan] = view;
                     }
 
                     if (options.CreateFrontView)
@@ -163,7 +165,9 @@ namespace AssemblingManager.Revit.Services
                             m => _viewService.DuplicateSectionView(doc, (ViewSection)m, assembly.Name, ViewService.FrontViewSuffix, bbox, options.SectionViewFamilyTypeId),
                             null,
                             resolution,
-                            result);
+                            result,
+                            typeof(ViewSection),
+                            ViewService.ViewKindFrontView);
                     }
 
                     if (options.CreateBackView)
@@ -178,7 +182,9 @@ namespace AssemblingManager.Revit.Services
                             m => _viewService.DuplicateSectionView(doc, (ViewSection)m, assembly.Name, ViewService.BackViewSuffix, bbox, options.SectionViewFamilyTypeId),
                             null,
                             resolution,
-                            result);
+                            result,
+                            typeof(ViewSection),
+                            ViewService.ViewKindBackView);
                     }
 
                     if (options.CreateRightView)
@@ -193,7 +199,9 @@ namespace AssemblingManager.Revit.Services
                             m => _viewService.DuplicateSectionView(doc, (ViewSection)m, assembly.Name, ViewService.RightViewSuffix, bbox, options.SectionViewFamilyTypeId),
                             null,
                             resolution,
-                            result);
+                            result,
+                            typeof(ViewSection),
+                            ViewService.ViewKindRightView);
                     }
 
                     if (options.CreateLeftView)
@@ -208,13 +216,15 @@ namespace AssemblingManager.Revit.Services
                             m => _viewService.DuplicateSectionView(doc, (ViewSection)m, assembly.Name, ViewService.LeftViewSuffix, bbox, options.SectionViewFamilyTypeId),
                             null,
                             resolution,
-                            result);
+                            result,
+                            typeof(ViewSection),
+                            ViewService.ViewKindLeftView);
                     }
 
                     if (options.Create3D)
                     {
                         string suffix = ViewService.View3DSuffix;
-                        View master = viewMasters.ContainsKey(suffix) ? viewMasters[suffix] : null;
+                        View master = viewMasters.ContainsKey(ViewService.ViewKind3D) ? viewMasters[ViewService.ViewKind3D] : null;
                         (View view, bool createdOrReplaced) = CreateOrReplaceView(
                             doc,
                             assembly.Name,
@@ -224,9 +234,11 @@ namespace AssemblingManager.Revit.Services
                             m => _viewService.Duplicate3DView(doc, (View3D)m, assembly.Name, bbox, options.View3DViewFamilyTypeId),
                             master,
                             resolution,
-                            result);
-                        if (createdOrReplaced && !viewMasters.ContainsKey(suffix))
-                            viewMasters[suffix] = view;
+                            result,
+                            typeof(View3D),
+                            ViewService.ViewKind3D);
+                        if (createdOrReplaced && !viewMasters.ContainsKey(ViewService.ViewKind3D))
+                            viewMasters[ViewService.ViewKind3D] = view;
                     }
                 }
 
@@ -267,14 +279,14 @@ namespace AssemblingManager.Revit.Services
             return result;
         }
 
-        private (View View, bool CreatedOrReplaced) CreateOrReplaceView(Document doc, string assemblyName, string suffix, int? templateId, Func<View> createFromScratch, Func<View, View> duplicateFromMaster, View master, ViewConflictResolution resolution, ViewCreationResult result)
+        private (View View, bool CreatedOrReplaced) CreateOrReplaceView(Document doc, string assemblyName, string suffix, int? templateId, Func<View> createFromScratch, Func<View, View> duplicateFromMaster, View master, ViewConflictResolution resolution, ViewCreationResult result, Type expectedViewType, string viewKind)
         {
             string viewName = assemblyName + suffix;
-            View existingView = _viewService.GetViewByName(doc, viewName);
+            View existingView = _viewService.GetViewByName(doc, viewName, expectedViewType);
 
             if (existingView != null)
             {
-                ViewConflictItem conflict = resolution?.Items.FirstOrDefault(i => i.ViewName == viewName);
+                ViewConflictItem conflict = resolution?.Items.FirstOrDefault(i => i.ViewName == viewName && i.ViewKind == viewKind);
                 bool replace = conflict?.Replace ?? false;
 
                 if (!replace)
@@ -285,7 +297,7 @@ namespace AssemblingManager.Revit.Services
                 }
 
                 Logger.Debug($"Replacing existing view '{viewName}'.");
-                _viewService.DeleteViewsByNames(doc, new[] { viewName });
+                _viewService.DeleteViewsByNames(doc, new[] { viewName }, expectedViewType);
                 result.ReplacedCount++;
                 View replacedView = CreateView(master, createFromScratch, duplicateFromMaster);
                 _viewService.ApplyViewTemplate(replacedView, templateId);
@@ -333,11 +345,11 @@ namespace AssemblingManager.Revit.Services
             ViewCreationResult result)
         {
             string scheduleName = assemblyName + ScheduleService.ScheduleSuffix;
-            View existingSchedule = _viewService.GetViewByName(doc, scheduleName);
+            View existingSchedule = _viewService.GetViewByName(doc, scheduleName, typeof(ViewSchedule));
 
             if (existingSchedule != null)
             {
-                ViewConflictItem conflict = resolution?.Items.FirstOrDefault(i => i.ViewName == scheduleName);
+                ViewConflictItem conflict = resolution?.Items.FirstOrDefault(i => i.ViewName == scheduleName && i.ViewKind == ViewService.ViewKindSchedule);
                 bool replace = conflict?.Replace ?? false;
 
                 if (!replace)
