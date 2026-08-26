@@ -31,6 +31,17 @@ namespace AssemblingManager.Revit
                 button.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Icon32.png");
                 button.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Icon16.png");
 
+                PushButtonData placeViewsButtonData = new PushButtonData(
+                    "PlaceViewsOnSheets",
+                    "Разместить\nна листах",
+                    assemblyPath,
+                    "AssemblingManager.Revit.Commands.PlaceViewsOnSheetsCommand");
+
+                PushButton placeViewsButton = panel.AddItem(placeViewsButtonData) as PushButton;
+                placeViewsButton.ToolTip = "Скопировать лист-образец для каждого объекта из выбранной группы видов и разместить виды вокруг листа.";
+                placeViewsButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Icon32.png");
+                placeViewsButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Icon16.png");
+
                 return Result.Succeeded;
             }
             catch (Exception ex)
