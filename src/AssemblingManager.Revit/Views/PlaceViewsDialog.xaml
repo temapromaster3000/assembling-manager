@@ -12,6 +12,16 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/AssemblingManager;component/Styles/Common.xaml" />
             </ResourceDictionary.MergedDictionaries>
+
+            <Style TargetType="TreeViewItem">
+                <Style.Triggers>
+                    <Trigger Property="IsSelected" Value="True">
+                        <Setter Property="Background" Value="#FFC9E1FF" />
+                        <Setter Property="Foreground" Value="#FF0B4FA8" />
+                        <Setter Property="FontWeight" Value="SemiBold" />
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
         </ResourceDictionary>
     </Window.Resources>
     <Grid Margin="20">

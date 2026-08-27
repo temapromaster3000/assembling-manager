@@ -13,6 +13,7 @@ namespace AssemblingManager.Revit.Views
 
         public ViewGroupNode SelectedGroupNode { get; private set; }
         public ViewSheet SelectedMasterSheet { get; private set; }
+        public SheetGroupNode SelectedSheetGroupNode { get; private set; }
 
         public PlaceViewsDialog(Document document, List<ViewGroupNode> groupRoots, List<SheetGroupNode> sheetRoots, SheetService sheetService)
         {
@@ -45,6 +46,7 @@ namespace AssemblingManager.Revit.Views
         {
             SheetGroupNode node = e.NewValue as SheetGroupNode;
             SelectedMasterSheet = node != null && node.IsSheet ? node.Sheet : null;
+            SelectedSheetGroupNode = node != null && node.IsSheet ? node.Parent : null;
 
             UpdateOkState();
         }

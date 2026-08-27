@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Autodesk.Revit.DB;
+using AssemblingManager.Core.Common;
 using AssemblingManager.Core.Models;
 
 namespace AssemblingManager.Revit.Services
@@ -62,14 +63,78 @@ namespace AssemblingManager.Revit.Services
             ViewService.LeftViewSuffix
         };
 
+        private static readonly NaturalStringComparer SheetNumberComparer = new NaturalStringComparer();
+
         public List<ViewSheet> GetSheets(Document doc)
         {
             return new FilteredElementCollector(doc)
                 .OfClass(typeof(ViewSheet))
                 .Cast<ViewSheet>()
                 .Where(s => !s.IsTemplate)
-                .OrderBy(s => s.SheetNumber, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(s => s.SheetNumber ?? string.Empty, SheetNumberComparer)
                 .ToList();
+        }
+
+        public class PlannedSheetInfo
+        {
+            public string ObjectName { get; set; }
+            public string SheetName { get; set; }
+            public string SheetNumber { get; set; }
+            public bool IsSignal { get; set; }
+            public List<ElementId> UnplacedViewIds { get; set; }
+        }
+
+        public class SheetPlacementPlan
+        {
+            public List<PlannedSheetInfo> Sheets { get; }
+            public int FullyPlacedGroupsCount { get; set; }
+
+            public SheetPlacementPlan()
+            {
+                Sheets = new List<PlannedSheetInfo>();
+            }
+        }
+
+        public SheetPlacementPlan BuildPlacementPlan(
+            Document doc,
+            List<ObjectViewGroup> objects,
+            ViewSheet masterSheet,
+            IEnumerable<string> groupSheetNumbers,
+            string signalSheetSuffix)
+        {
+            SheetPlacementPlan plan = new SheetPlacementPlan();
+
+            HashSet<string> occupiedNumbers = GetAllSheetNumbers(doc);
+            HashSet<ElementId> placedViewIds = GetViewsPlacedOnSheets(doc);
+
+            foreach (ObjectViewGroup group in objects)
+            {
+                List<ElementId> groupViewIds = GetObjectViewIds(group).ToList();
+                List<ElementId> unplacedViewIds = groupViewIds
+                    .Where(id => !placedViewIds.Contains(id))
+                    .ToList();
+
+                if (unplacedViewIds.Count == 0)
+                {
+                    plan.FullyPlacedGroupsCount++;
+                    continue;
+                }
+
+                bool isSignal = unplacedViewIds.Count < groupViewIds.Count;
+                string sheetName = isSignal ? group.ObjectName + signalSheetSuffix : group.ObjectName;
+                string sheetNumber = GenerateNextSheetNumber(masterSheet, groupSheetNumbers, occupiedNumbers);
+
+                plan.Sheets.Add(new PlannedSheetInfo
+                {
+                    ObjectName = group.ObjectName,
+                    SheetName = sheetName,
+                    SheetNumber = sheetNumber,
+                    IsSignal = isSignal,
+                    UnplacedViewIds = unplacedViewIds
+                });
+            }
+
+            return plan;
         }
 
         public HashSet<string> GetAllSheetNumbers(Document doc)
@@ -196,7 +261,7 @@ namespace AssemblingManager.Revit.Services
             return viewName;
         }
 
-        public string GenerateNextSheetNumber(ViewSheet master, HashSet<string> occupiedNumbers)
+        public string GenerateNextSheetNumber(ViewSheet master, IEnumerable<string> groupSheetNumbers, HashSet<string> occupiedNumbers)
         {
             string masterNumber = master.SheetNumber != null ? master.SheetNumber.Trim() : string.Empty;
             Match match = Regex.Match(masterNumber, @"^(.*?)(\d+)$");
@@ -213,6 +278,12 @@ namespace AssemblingManager.Revit.Services
                 }
 
                 bool hasLeadingZeros = digits.Length > 1 && digits.StartsWith("0");
+
+                long groupMax = GetMaxGroupNumber(groupSheetNumbers, prefix);
+                if (groupMax > value)
+                {
+                    value = groupMax;
+                }
 
                 for (int i = 0; i < 100000; i++)
                 {
@@ -231,9 +302,15 @@ namespace AssemblingManager.Revit.Services
             }
             else
             {
-                for (int i = 1; i < 100000; i++)
+                string groupPrefix = masterNumber + "-";
+                long groupMax = GetMaxGroupSuffixNumber(groupSheetNumbers, groupPrefix);
+                long padLength = groupMax > 0 ? groupMax.ToString().Length : 2;
+
+                long value = groupMax;
+                for (int i = 0; i < 100000; i++)
                 {
-                    string candidate = $"{masterNumber}-{i:00}";
+                    value++;
+                    string candidate = $"{groupPrefix}{value.ToString().PadLeft((int)Math.Max(padLength, 2), '0')}";
 
                     if (!occupiedNumbers.Contains(candidate))
                     {
@@ -244,6 +321,60 @@ namespace AssemblingManager.Revit.Services
             }
 
             throw new InvalidOperationException($"Не удалось подобрать свободный номер листа для образца «{masterNumber}».");
+        }
+
+        private static long GetMaxGroupNumber(IEnumerable<string> groupSheetNumbers, string prefix)
+        {
+            long max = 0;
+
+            foreach (string sheetNumber in groupSheetNumbers)
+            {
+                if (string.IsNullOrWhiteSpace(sheetNumber))
+                {
+                    continue;
+                }
+
+                Match match = Regex.Match(sheetNumber.Trim(), "^" + Regex.Escape(prefix) + "(\\d+)$");
+                if (!match.Success)
+                {
+                    continue;
+                }
+
+                long value;
+                if (long.TryParse(match.Groups[1].Value, out value) && value > max)
+                {
+                    max = value;
+                }
+            }
+
+            return max;
+        }
+
+        private static long GetMaxGroupSuffixNumber(IEnumerable<string> groupSheetNumbers, string groupPrefix)
+        {
+            long max = 0;
+
+            foreach (string sheetNumber in groupSheetNumbers)
+            {
+                if (string.IsNullOrWhiteSpace(sheetNumber))
+                {
+                    continue;
+                }
+
+                Match match = Regex.Match(sheetNumber.Trim(), "^" + Regex.Escape(groupPrefix) + "(\\d+)$");
+                if (!match.Success)
+                {
+                    continue;
+                }
+
+                long value;
+                if (long.TryParse(match.Groups[1].Value, out value) && value > max)
+                {
+                    max = value;
+                }
+            }
+
+            return max;
         }
 
         public ViewSheet CreateSheetCopy(Document doc, ViewSheet master, string objectName, string newNumber, IList<ElementId> groupParameterIds)
@@ -368,33 +499,6 @@ namespace AssemblingManager.Revit.Services
             }
 
             return sheet.Name;
-        }
-
-        public List<SheetConflictItem> FindSheetConflicts(Document doc, List<ObjectViewGroup> objects, ViewSheet masterSheet)
-        {
-            List<ViewSheet> allSheets = GetSheets(doc);
-            List<SheetConflictItem> conflicts = new List<SheetConflictItem>();
-
-            foreach (ObjectViewGroup group in objects)
-            {
-                List<ViewSheet> existing = FindSheetsByName(allSheets, group.ObjectName, masterSheet);
-
-                if (existing.Count == 0)
-                {
-                    continue;
-                }
-
-                conflicts.Add(new SheetConflictItem
-                {
-                    ObjectName = group.ObjectName,
-                    SheetNumber = existing[0].SheetNumber,
-                    SheetName = GetSheetName(existing[0]),
-                    DuplicatesCount = existing.Count - 1,
-                    Replace = false
-                });
-            }
-
-            return conflicts;
         }
 
         public List<ViewSheet> FindSheetsByName(Document doc, string name, ViewSheet masterSheet)

@@ -1,0 +1,95 @@
+<Window x:Class="AssemblingManager.Revit.Views.PlacementPreviewDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Проверка размещения"
+        Width="520"
+        SizeToContent="Height"
+        MaxHeight="600"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/AssemblingManager;component/Styles/Common.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Text="Проверка перед созданием"
+                   FontWeight="Bold"
+                   Margin="0,0,0,12" />
+
+        <TextBlock Grid.Row="1"
+                   x:Name="SummaryText"
+                   TextWrapping="Wrap"
+                   Margin="0,0,0,12" />
+
+        <ScrollViewer Grid.Row="2"
+                      MaxHeight="320"
+                      VerticalScrollBarVisibility="Auto">
+            <ItemsControl x:Name="SheetsList">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Padding="4,3"
+                                CornerRadius="2">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="Transparent" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsSignal}" Value="True">
+                                            <Setter Property="Background" Value="#FFEFDDDD" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Left"
+                                           Width="72"
+                                           Text="{Binding SheetNumber}"
+                                           FontWeight="SemiBold">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="#FF333333" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsSignal}" Value="True">
+                                                    <Setter Property="Foreground" Value="#FF8A2B2B" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock Text="{Binding SheetName}"
+                                           TextWrapping="Wrap" />
+                            </DockPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="3"
+                    Orientation="Horizontal"
+                    Margin="0,15,0,0"
+                    HorizontalAlignment="Right">
+            <Button Content="Разместить"
+                    Width="120"
+                    Margin="0,0,10,0"
+                    IsDefault="True"
+                    Click="ButtonOK_Click"
+                    Style="{StaticResource PrimaryButton}" />
+
+            <Button Content="Отмена"
+                    Width="80"
+                    IsCancel="True"
+                    Click="ButtonCancel_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

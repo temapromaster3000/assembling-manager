@@ -6,8 +6,8 @@ namespace AssemblingManager.Core.Models
     public class SheetPlacementResult
     {
         public int CreatedSheetsCount { get; set; }
-        public int UpdatedSheetsCount { get; set; }
-        public int SkippedObjectsCount { get; set; }
+        public int SignalSheetsCount { get; set; }
+        public int FullyPlacedGroupsCount { get; set; }
         public List<string> Warnings { get; }
         public TimeSpan Elapsed { get; set; }
 

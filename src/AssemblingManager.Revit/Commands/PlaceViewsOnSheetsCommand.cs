@@ -16,6 +16,8 @@ namespace AssemblingManager.Revit.Commands
     [Regeneration(RegenerationOption.Manual)]
     public class PlaceViewsOnSheetsCommand : IExternalCommand
     {
+        private const string SignalSheetSuffix = " (не размещенное)";
+
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIApplication uiApplication = commandData.Application;
@@ -69,7 +71,10 @@ namespace AssemblingManager.Revit.Commands
             PlaceViewsDialog dialog = new PlaceViewsDialog(document, groupRoots, sheetRoots, sheetService);
             bool? dialogResult = dialog.ShowDialog();
 
-            if (dialogResult != true || dialog.SelectedGroupNode == null || dialog.SelectedMasterSheet == null)
+            if (dialogResult != true
+                || dialog.SelectedGroupNode == null
+                || dialog.SelectedMasterSheet == null
+                || dialog.SelectedSheetGroupNode == null)
             {
                 Logger.Info("User cancelled the place-views dialog.");
                 return Result.Cancelled;
@@ -86,32 +91,41 @@ namespace AssemblingManager.Revit.Commands
                 return Result.Cancelled;
             }
 
-            List<SheetConflictItem> conflicts = sheetService.FindSheetConflicts(document, objects, masterSheet);
-            Dictionary<string, bool> replaceByObject = new Dictionary<string, bool>();
+            HashSet<string> groupSheetNumbers = new HashSet<string>(
+                dialog.SelectedSheetGroupNode.GetAllSheets()
+                    .Select(s => s.SheetNumber?.Trim() ?? string.Empty)
+                    .Where(n => !string.IsNullOrEmpty(n)),
+                StringComparer.OrdinalIgnoreCase);
 
-            if (conflicts.Count > 0)
+            SheetService.SheetPlacementPlan plan = sheetService.BuildPlacementPlan(
+                document,
+                objects,
+                masterSheet,
+                groupSheetNumbers,
+                SignalSheetSuffix);
+
+            if (plan.Sheets.Count == 0)
             {
-                Logger.Info($"Found {conflicts.Count} sheet name conflicts.");
-
-                SheetConflictDialog conflictDialog = new SheetConflictDialog(conflicts);
-                bool? conflictResult = conflictDialog.ShowDialog();
-
-                if (conflictResult != true)
-                {
-                    Logger.Info("User cancelled the conflict dialog.");
-                    return Result.Cancelled;
-                }
-
-                foreach (SheetConflictItem item in conflictDialog.ConflictItems)
-                {
-                    replaceByObject[item.ObjectName] = item.Replace;
-                }
+                Logger.Info("Placement plan is empty: all views are already placed.");
+                TaskDialog.Show(Constants.PluginName, "Создавать нечего: все виды из выбранной группы уже размещены на листах.");
+                return Result.Cancelled;
             }
 
-            SheetPlacementResult result = new SheetPlacementResult();
+            PlacementPreviewDialog previewDialog = new PlacementPreviewDialog(plan);
+            bool? previewResult = previewDialog.ShowDialog();
+
+            if (previewResult != true)
+            {
+                Logger.Info("User cancelled the placement preview.");
+                return Result.Cancelled;
+            }
+
+            SheetPlacementResult result = new SheetPlacementResult
+            {
+                FullyPlacedGroupsCount = plan.FullyPlacedGroupsCount
+            };
             Stopwatch stopwatch = Stopwatch.StartNew();
 
-            HashSet<string> occupiedNumbers = sheetService.GetAllSheetNumbers(document);
             HashSet<ElementId> placedViewIds = sheetService.GetViewsPlacedOnSheets(document);
             List<ElementId> groupParameterIds = sheetService.GetSheetGroupParameterIds(document, masterSheet);
 
@@ -131,48 +145,23 @@ namespace AssemblingManager.Revit.Commands
                         transaction.Start();
                         Logger.Info("Transaction started.");
 
-                        foreach (ObjectViewGroup group in objects)
+                        foreach (SheetService.PlannedSheetInfo item in plan.Sheets)
                         {
-                            List<ViewSheet> existing = sheetService.FindSheetsByName(document, group.ObjectName, masterSheet);
-                            bool replace = existing.Count > 0 && replaceByObject.TryGetValue(group.ObjectName, out bool replaceValue) && replaceValue;
+                            ViewSheet newSheet = sheetService.CreateSheetCopy(document, masterSheet, item.SheetName, item.SheetNumber, groupParameterIds);
 
-                            if (existing.Count > 0 && !replace)
+                            if (item.IsSignal)
                             {
-                                result.SkippedObjectsCount++;
-                                Logger.Info($"Object '{group.ObjectName}' skipped: existing sheet(s) kept as is.");
-                                continue;
-                            }
-
-                            if (existing.Count > 0)
-                            {
-                                ViewSheet targetSheet = existing[0];
-                                List<ViewSheet> duplicates = existing.Skip(1).ToList();
-
-                                Dictionary<ElementId, XYZ> positionHints = new Dictionary<ElementId, XYZ>();
-                                sheetService.PrepareSheetsForPlacement(
-                                    document,
-                                    targetSheet,
-                                    duplicates,
-                                    group,
-                                    placedViewIds,
-                                    positionHints,
-                                    result.Warnings);
-
-                                sheetService.PlaceObjectViewsOnSheet(document, targetSheet, group, placedViewIds, positionHints, result.Warnings);
-                                result.UpdatedSheetsCount++;
-
-                                Logger.Info($"Updated sheet '{targetSheet.SheetNumber}' for object '{group.ObjectName}'.");
+                                result.SignalSheetsCount++;
+                                Logger.Info($"Created signal sheet '{item.SheetNumber}' ('{item.SheetName}') for unfinished views of object '{item.ObjectName}'.");
                             }
                             else
                             {
-                                string newNumber = sheetService.GenerateNextSheetNumber(masterSheet, occupiedNumbers);
-                                ViewSheet newSheet = sheetService.CreateSheetCopy(document, masterSheet, group.ObjectName, newNumber, groupParameterIds);
                                 result.CreatedSheetsCount++;
-
-                                Logger.Info($"Created sheet '{newNumber}' for object '{group.ObjectName}'.");
-
-                                sheetService.PlaceObjectViewsOnSheet(document, newSheet, group, placedViewIds, null, result.Warnings);
+                                Logger.Info($"Created sheet '{item.SheetNumber}' ('{item.SheetName}') for object '{item.ObjectName}'.");
                             }
+
+                            ObjectViewGroup unplacedGroup = BuildUnplacedGroup(document, item.ObjectName, item.UnplacedViewIds);
+                            sheetService.PlaceObjectViewsOnSheet(document, newSheet, unplacedGroup, placedViewIds, null, result.Warnings);
                         }
 
                         transaction.Commit();
@@ -196,11 +185,48 @@ namespace AssemblingManager.Revit.Commands
             result.Elapsed = stopwatch.Elapsed;
 
             Logger.Info($"=== PlaceViewsOnSheetsCommand finished: {result.Elapsed.TotalSeconds:F2} s ===");
-            Logger.Info($"Created: {result.CreatedSheetsCount}, Updated: {result.UpdatedSheetsCount}, Skipped: {result.SkippedObjectsCount}, Warnings: {result.Warnings.Count}");
+            Logger.Info($"Created: {result.CreatedSheetsCount}, Signal sheets: {result.SignalSheetsCount}, Fully placed groups: {result.FullyPlacedGroupsCount}, Warnings: {result.Warnings.Count}");
 
             ShowSummary(result);
 
             return Result.Succeeded;
+        }
+
+        private static ObjectViewGroup BuildUnplacedGroup(Document doc, string objectName, List<ElementId> unplacedViewIds)
+        {
+            ObjectViewGroup result = new ObjectViewGroup { ObjectName = objectName };
+
+            foreach (ElementId viewId in unplacedViewIds)
+            {
+                View view = doc.GetElement(viewId) as View;
+                if (view == null)
+                {
+                    continue;
+                }
+
+                if (view is ViewPlan)
+                {
+                    result.Plans.Add(view);
+                }
+                else if (view is View3D)
+                {
+                    result.Views3D.Add(view);
+                }
+                else if (view is ViewSection)
+                {
+                    result.Sections.Add(view);
+                }
+                else if (view is ViewSchedule)
+                {
+                    result.Schedules.Add(view);
+                }
+                else
+                {
+                    result.Unsupported.Add(view);
+                }
+            }
+
+            return result;
         }
 
         private static void ShowSummary(SheetPlacementResult result)
@@ -208,7 +234,15 @@ namespace AssemblingManager.Revit.Commands
             const int maxWarnings = 25;
 
             TaskDialog taskDialog = new TaskDialog(Constants.PluginName);
-            taskDialog.MainInstruction = $"Создано листов: {result.CreatedSheetsCount}, обновлено: {result.UpdatedSheetsCount}, пропущено объектов: {result.SkippedObjectsCount}.";
+            string signalText = result.SignalSheetsCount > 0
+                ? $", сигнальных листов: {result.SignalSheetsCount}"
+                : string.Empty;
+            string fullyPlacedText = result.FullyPlacedGroupsCount > 0
+                ? $", полностью размещено групп: {result.FullyPlacedGroupsCount}"
+                : string.Empty;
+
+            taskDialog.MainInstruction =
+                $"Создано листов: {result.CreatedSheetsCount}{signalText}{fullyPlacedText}.";
 
             if (result.Warnings.Count == 0)
             {

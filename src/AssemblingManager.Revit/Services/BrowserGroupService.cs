@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
+using AssemblingManager.Core.Common;
 
 namespace AssemblingManager.Revit.Services
 {
@@ -44,10 +45,28 @@ namespace AssemblingManager.Revit.Services
         public string Name { get; }
         public IList<SheetGroupNode> Children { get; }
         public ViewSheet Sheet { get; }
+        public SheetGroupNode Parent { get; set; }
 
         public bool IsSheet
         {
             get { return Sheet != null; }
+        }
+
+        public List<ViewSheet> GetAllSheets()
+        {
+            List<ViewSheet> sheets = new List<ViewSheet>();
+
+            if (IsSheet && Sheet != null)
+            {
+                sheets.Add(Sheet);
+            }
+
+            foreach (SheetGroupNode child in Children)
+            {
+                sheets.AddRange(child.GetAllSheets());
+            }
+
+            return sheets;
         }
 
         public string DisplayName
@@ -90,6 +109,7 @@ namespace AssemblingManager.Revit.Services
 
     public class BrowserGroupService
     {
+        private static readonly NaturalStringComparer NameComparer = new NaturalStringComparer();
         private const string EmptyValueName = "(без группы)";
 
         public List<ViewGroupNode> BuildGroupTree(Document doc)
@@ -182,7 +202,7 @@ namespace AssemblingManager.Revit.Services
                 .OfClass(typeof(ViewSheet))
                 .Cast<ViewSheet>()
                 .Where(s => !s.IsTemplate)
-                .OrderBy(s => s.SheetNumber, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(s => s.SheetNumber ?? string.Empty, NameComparer)
                 .ToList();
 
             BrowserOrganization organization = null;
@@ -260,13 +280,14 @@ namespace AssemblingManager.Revit.Services
         {
             List<SheetGroupNode> nodes = new List<SheetGroupNode>();
 
-            foreach (KeyValuePair<string, GroupNodeBuilder> pair in builders.OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase))
+            foreach (KeyValuePair<string, GroupNodeBuilder> pair in builders.OrderBy(p => p.Key, NameComparer))
             {
                 GroupNodeBuilder builder = pair.Value;
                 SheetGroupNode node = new SheetGroupNode(builder.Name);
 
                 foreach (SheetGroupNode child in ConvertToSheetNodes(builder.Children, doc))
                 {
+                    child.Parent = node;
                     node.Children.Add(child);
                 }
 
@@ -275,7 +296,8 @@ namespace AssemblingManager.Revit.Services
                     ViewSheet sheet = doc.GetElement(sheetId) as ViewSheet;
                     if (sheet != null)
                     {
-                        node.Children.Add(new SheetGroupNode(sheet));
+                        SheetGroupNode sheetNode = new SheetGroupNode(sheet) { Parent = node };
+                        node.Children.Add(sheetNode);
                     }
                 }
 
@@ -289,7 +311,7 @@ namespace AssemblingManager.Revit.Services
         {
             List<ViewGroupNode> nodes = new List<ViewGroupNode>();
 
-            foreach (KeyValuePair<string, GroupNodeBuilder> pair in builders.OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase))
+            foreach (KeyValuePair<string, GroupNodeBuilder> pair in builders.OrderBy(p => p.Key, NameComparer))
             {
                 GroupNodeBuilder builder = pair.Value;
                 ViewGroupNode node = new ViewGroupNode(builder.Name, new List<ElementId>(builder.ViewIds));
