@@ -37,16 +37,72 @@ namespace AssemblingManager.Revit.Services
         {
             HashSet<string> names = new HashSet<string>(viewNames);
 
-            List<ElementId> viewsToDelete = new FilteredElementCollector(doc)
+            List<View> viewsToDelete = new FilteredElementCollector(doc)
                 .OfClass(typeof(View))
                 .Cast<View>()
                 .Where(v => names.Contains(v.Name) && (viewType == null || viewType.IsInstanceOfType(v)))
-                .Select(v => v.Id)
                 .ToList();
 
             if (viewsToDelete.Count > 0)
             {
-                doc.Delete(viewsToDelete);
+                foreach (View view in viewsToDelete)
+                {
+                    UnlockView(view);
+                }
+
+                doc.Delete(viewsToDelete.Select(v => v.Id).ToList());
+            }
+        }
+
+        public void LockView(View view)
+        {
+            View3D view3D = view as View3D;
+            if (view3D == null || !view.IsValidObject)
+            {
+                return;
+            }
+
+            try
+            {
+                if (!view3D.HasBeenLocked())
+                {
+                    if (view3D.IsPerspective)
+                    {
+                        view3D.RestoreOrientationAndLock();
+                    }
+                    else
+                    {
+                        view3D.SaveOrientationAndLock();
+                    }
+
+                    Logger.Debug($"View3D '{view3D.Name}' locked.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Could not lock view3D '{view3D.Name}': {ex.Message}");
+            }
+        }
+
+        public void UnlockView(View view)
+        {
+            View3D view3D = view as View3D;
+            if (view3D == null || !view.IsValidObject)
+            {
+                return;
+            }
+
+            try
+            {
+                if (view3D.HasBeenLocked())
+                {
+                    view3D.Unlock();
+                    Logger.Debug($"View3D '{view3D.Name}' unlocked.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Could not unlock view3D '{view3D.Name}': {ex.Message}");
             }
         }
 

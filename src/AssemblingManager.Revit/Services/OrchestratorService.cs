@@ -271,6 +271,11 @@ namespace AssemblingManager.Revit.Services
                     {
                         _filterService.ApplyFilterToView(view, sectionMarkFilter.Id);
                     }
+
+                    if (view is View3D)
+                    {
+                        _viewService.LockView(view);
+                    }
                 }
             }
 
