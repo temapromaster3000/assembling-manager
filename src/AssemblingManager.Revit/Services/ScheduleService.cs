@@ -170,6 +170,42 @@ namespace AssemblingManager.Revit.Services
             return schedule;
         }
 
+        public bool UpdateScheduleFilter(Document doc, ViewSchedule schedule, ElementId groupingParameterId, string assemblyName)
+        {
+            if (schedule == null || !schedule.IsValidObject || groupingParameterId == null)
+            {
+                return false;
+            }
+
+            ScheduleDefinition definition = schedule.Definition;
+            ScheduleField field = FindField(definition, groupingParameterId);
+            if (field == null)
+            {
+                return false;
+            }
+
+            bool filterUpdated = false;
+            for (int i = 0; i < definition.GetFilterCount(); i++)
+            {
+                ScheduleFilter filter = definition.GetFilter(i);
+                if (filter.FieldId == field.FieldId)
+                {
+                    ScheduleFilter newFilter = new ScheduleFilter(field.FieldId, ScheduleFilterType.Equal, assemblyName);
+                    definition.SetFilter(i, newFilter);
+                    filterUpdated = true;
+                    break;
+                }
+            }
+
+            if (!filterUpdated)
+            {
+                ScheduleFilter newFilter = new ScheduleFilter(field.FieldId, ScheduleFilterType.Equal, assemblyName);
+                definition.AddFilter(newFilter);
+            }
+
+            return true;
+        }
+
         private ScheduleField FindField(ScheduleDefinition definition, ElementId parameterId)
         {
             foreach (ScheduleFieldId fieldId in definition.GetFieldOrder())

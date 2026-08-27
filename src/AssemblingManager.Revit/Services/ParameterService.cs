@@ -98,6 +98,57 @@ namespace AssemblingManager.Revit.Services
             return sharedParameterElement?.Id;
         }
 
+        public HashSet<string> GetDistinctParameterValues(Document doc, ElementId parameterId, IEnumerable<ElementId> elementIds)
+        {
+            HashSet<string> result = new HashSet<string>(StringComparer.Ordinal);
+
+            if (parameterId == null || elementIds == null)
+            {
+                return result;
+            }
+
+            SharedParameterElement parameterElement = doc.GetElement(parameterId) as SharedParameterElement;
+            if (parameterElement == null)
+            {
+                return result;
+            }
+
+            return GetDistinctParameterValues(doc, parameterElement.Name, elementIds);
+        }
+
+        public HashSet<string> GetDistinctParameterValues(Document doc, string parameterName, IEnumerable<ElementId> elementIds)
+        {
+            HashSet<string> result = new HashSet<string>(StringComparer.Ordinal);
+
+            if (string.IsNullOrWhiteSpace(parameterName) || elementIds == null)
+            {
+                return result;
+            }
+
+            foreach (ElementId elementId in elementIds)
+            {
+                Element element = doc.GetElement(elementId);
+                if (element == null)
+                {
+                    continue;
+                }
+
+                Parameter parameter = element.LookupParameter(parameterName);
+                if (parameter == null || !parameter.HasValue)
+                {
+                    continue;
+                }
+
+                string value = parameter.AsString();
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    result.Add(value);
+                }
+            }
+
+            return result;
+        }
+
         public ParameterValidationResult ValidateParameterCategories(Document doc, ElementId parameterId, IEnumerable<Category> categories)
         {
             ParameterValidationResult result = new ParameterValidationResult
