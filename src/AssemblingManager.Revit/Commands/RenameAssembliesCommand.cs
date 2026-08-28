@@ -163,7 +163,29 @@ namespace AssemblingManager.Revit.Commands
                 }
             }
 
-            RefreshRenamedSchedules(document, renames);
+            try
+            {
+                using (Transaction refreshTransaction = new Transaction(document, "Обновить спецификации"))
+                {
+                    FailureHandlingOptions refreshOptions = refreshTransaction.GetFailureHandlingOptions();
+                    refreshOptions.SetFailuresPreprocessor(new FailurePreprocessor());
+                    refreshTransaction.SetFailureHandlingOptions(refreshOptions);
+
+                    refreshTransaction.Start();
+                    Logger.Info("Refresh transaction started.");
+
+                    RefreshRenamedSchedules(document, renames);
+
+                    refreshTransaction.Commit();
+                    Logger.Info("Refresh transaction committed.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Exception during schedule refresh: {ex}");
+                message = $"Сборки переименованы, но не удалось обновить спецификации: {ex.Message}";
+                return Result.Failed;
+            }
 
             Logger.Info($"=== RenameAssembliesCommand finished: {renames.Count} assemblies renamed ===");
 
