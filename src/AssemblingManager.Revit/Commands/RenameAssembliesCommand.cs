@@ -119,6 +119,26 @@ namespace AssemblingManager.Revit.Commands
                 return Result.Cancelled;
             }
 
+            List<RenameReportItem> pendingItems = new List<RenameReportItem>();
+            foreach (AssemblyRenameInfo rename in renames)
+            {
+                foreach (string oldName in rename.OldNames)
+                {
+                    pendingItems.Add(new RenameReportItem
+                    {
+                        OldName = oldName,
+                        NewName = rename.Assembly.Name
+                    });
+                }
+            }
+
+            ConfirmRenameDialog confirmDialog = new ConfirmRenameDialog(renames.Count, pendingItems);
+            if (confirmDialog.ShowDialog() != true)
+            {
+                Logger.Info("User cancelled the rename confirmation.");
+                return Result.Cancelled;
+            }
+
             List<RenameReportItem> reportItems = new List<RenameReportItem>();
 
             using (TransactionGroup transactionGroup = new TransactionGroup(document, "Assembling Manager"))
