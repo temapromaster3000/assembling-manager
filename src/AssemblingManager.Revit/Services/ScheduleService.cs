@@ -116,6 +116,42 @@ namespace AssemblingManager.Revit.Services
             return conflicts;
         }
 
+        public List<PlannedViewItem> FindMissingSchedules(Document doc, IEnumerable<AssemblyInstance> assemblies, ViewCreationOptions options)
+        {
+            List<PlannedViewItem> missing = new List<PlannedViewItem>();
+
+            if (!options.CreateSchedule || !options.MasterScheduleId.HasValue)
+            {
+                return missing;
+            }
+
+            HashSet<string> existingNames = new HashSet<string>(
+                new FilteredElementCollector(doc)
+                    .OfClass(typeof(View))
+                    .Cast<View>()
+                    .Select(v => v.Name));
+
+            foreach (AssemblyInstance assembly in assemblies)
+            {
+                string scheduleName = assembly.Name + ScheduleSuffix;
+                if (existingNames.Contains(scheduleName))
+                {
+                    continue;
+                }
+
+                missing.Add(new PlannedViewItem
+                {
+                    AssemblyName = assembly.Name,
+                    ViewName = scheduleName,
+                    ViewTypeDisplayName = "Спецификация",
+                    ViewKind = ViewService.ViewKindSchedule,
+                    Create = false
+                });
+            }
+
+            return missing;
+        }
+
         public ViewSchedule DuplicateScheduleForAssembly(Document doc, ViewSchedule master, ElementId groupingParameterId, string assemblyName, int? scheduleTemplateId)
         {
             if (!master.CanViewBeDuplicated(ViewDuplicateOption.Duplicate))

@@ -310,6 +310,14 @@ namespace AssemblingManager.Revit.Services
                 return (replacedView, true);
             }
 
+            PlannedViewItem skip = resolution?.SkipItems?.FirstOrDefault(i => i.ViewName == viewName && i.ViewKind == viewKind);
+            if (skip != null)
+            {
+                Logger.Debug($"Skipping creation of view '{viewName}' (user choice).");
+                result.SkippedCount++;
+                return (null, false);
+            }
+
             Logger.Debug($"Creating new view '{viewName}'.");
             result.CreatedCount++;
             View newView = CreateView(master, createFromScratch, duplicateFromMaster);
@@ -370,6 +378,14 @@ namespace AssemblingManager.Revit.Services
             }
             else
             {
+                PlannedViewItem skip = resolution?.SkipItems?.FirstOrDefault(i => i.ViewName == scheduleName && i.ViewKind == ViewService.ViewKindSchedule);
+                if (skip != null)
+                {
+                    Logger.Debug($"Skipping creation of schedule '{scheduleName}' (user choice).");
+                    result.SkippedCount++;
+                    return (null, false);
+                }
+
                 result.CreatedCount++;
             }
 

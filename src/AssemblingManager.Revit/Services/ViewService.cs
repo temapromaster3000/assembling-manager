@@ -137,6 +137,37 @@ namespace AssemblingManager.Revit.Services
             return conflicts;
         }
 
+        public List<PlannedViewItem> FindMissingViews(Document doc, IEnumerable<AssemblyInstance> assemblies, ViewCreationOptions options)
+        {
+            List<PlannedViewItem> missing = new List<PlannedViewItem>();
+
+            foreach (AssemblyInstance assembly in assemblies)
+            {
+                foreach (ViewTypeInfo viewType in _viewTypes)
+                {
+                    if (!IsViewTypeSelected(options, viewType.Type))
+                    {
+                        continue;
+                    }
+
+                    string viewName = assembly.Name + viewType.Suffix;
+                    if (!ViewExists(doc, viewName, viewType.Type))
+                    {
+                        missing.Add(new PlannedViewItem
+                        {
+                            AssemblyName = assembly.Name,
+                            ViewName = viewName,
+                            ViewTypeDisplayName = viewType.DisplayName,
+                            ViewKind = viewType.Kind,
+                            Create = false
+                        });
+                    }
+                }
+            }
+
+            return missing;
+        }
+
         private bool ViewExists(Document doc, string viewName, ViewType viewType)
         {
             Type expectedType;

@@ -126,6 +126,32 @@ namespace AssemblingManager.Revit.Commands
                     resolution.Items = conflictDialog.ConflictItems;
                 }
 
+                List<PlannedViewItem> missingViews = viewService.FindMissingViews(document, assemblies, options);
+                missingViews.AddRange(scheduleService.FindMissingSchedules(document, assemblies, options));
+
+                HashSet<string> assembliesWithExistingViews = new HashSet<string>(
+                    conflicts.Select(c => c.AssemblyName).Where(n => !string.IsNullOrEmpty(n)),
+                    StringComparer.Ordinal);
+
+                missingViews = missingViews.Where(m => assembliesWithExistingViews.Contains(m.AssemblyName)).ToList();
+
+                if (missingViews.Count > 0)
+                {
+                    Logger.Info($"Found {missingViews.Count} missing views for partially built assemblies.");
+
+                    NewViewsDialog newViewsDialog = new NewViewsDialog(missingViews);
+                    bool? newViewsResult = newViewsDialog.ShowDialog();
+
+                    if (newViewsResult != true)
+                    {
+                        Logger.Info("User cancelled the missing-views dialog.");
+                        continue;
+                    }
+
+                    resolution.SkipItems = missingViews.Where(m => !m.Create).ToList();
+                    Logger.Info($"Marked {resolution.SkipItems.Count} views to skip.");
+                }
+
                 Stopwatch stopwatch = Stopwatch.StartNew();
                 ViewCreationResult result;
 

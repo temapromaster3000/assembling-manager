@@ -1,0 +1,179 @@
+<Window x:Class="AssemblingManager.Revit.Views.NewViewsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Недостающие виды"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen"
+        Height="485"
+        Width="620"
+        ContentRendered="NewViewsDialog_ContentRendered">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/AssemblingManager;component/Styles/Common.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <Style TargetType="GridViewColumnHeader">
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="GridViewColumnHeader">
+                            <Border Background="Transparent"
+                                    BorderBrush="#FFD5DFE5"
+                                    BorderThickness="0,0,1,1">
+                                <TextBlock Text="{TemplateBinding Content}"
+                                           Margin="6,5,6,5"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           FontWeight="Bold" />
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Text="У некоторых сборок виды созданы не полностью. Отметьте те, которые нужно создать:"
+                   TextWrapping="Wrap"
+                   Margin="0,0,0,10" />
+
+        <Grid Grid.Row="1"
+              Margin="0,0,0,10">
+            <TextBox x:Name="SearchTextBox"
+                     Height="26"
+                     Padding="4,3,24,3"
+                     VerticalContentAlignment="Center"
+                     TextChanged="SearchTextBox_TextChanged"
+                     KeyDown="SearchTextBox_KeyDown" />
+            <TextBlock Text="Поиск по сборке или типу вида…"
+                       Margin="7,0,0,0"
+                       VerticalAlignment="Center"
+                       Foreground="Gray"
+                       IsHitTestVisible="False">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Text, ElementName=SearchTextBox}" Value="">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+            <Button Content="✕"
+                    Width="18"
+                    Height="18"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Margin="0,0,4,0"
+                    BorderThickness="0"
+                    Background="Transparent"
+                    Foreground="Gray"
+                    Cursor="Hand"
+                    Click="ButtonClearSearch_Click">
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Setter Property="Visibility" Value="Visible" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Text, ElementName=SearchTextBox}" Value="">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+        </Grid>
+
+        <ListView Grid.Row="2"
+                  x:Name="NewViewsListView"
+                  AlternationCount="2"
+                  SelectionMode="Extended"
+                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                  GridViewColumnHeader.Click="GridViewColumnHeader_Click">
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Style.Triggers>
+                        <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                            <Setter Property="Background" Value="#F5F7F8" />
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.View>
+                <GridView AllowsColumnReorder="False">
+                    <GridViewColumn Header="Создать"
+                                   Width="70">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <Grid Width="58">
+                                    <CheckBox HorizontalAlignment="Center"
+                                              IsChecked="{Binding Create, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                              Click="CheckBox_Click" />
+                                </Grid>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn Header="Тип вида"
+                                   DisplayMemberBinding="{Binding ViewTypeDisplayName}"
+                                   Width="120" />
+                    <GridViewColumn Header="Сборка"
+                                   Width="388">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding AssemblyName}"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding AssemblyName}"
+                                           ToolTipOpening="AssemblyName_ToolTipOpening" />
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                </GridView>
+            </ListView.View>
+        </ListView>
+
+        <Grid Grid.Row="3"
+              Margin="0,15,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock x:Name="TextBlockSelectedCount"
+                       VerticalAlignment="Center"
+                       Text="Выбрано: 0 из 0" />
+
+            <StackPanel Grid.Column="1"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right">
+                <Button x:Name="ButtonSelectAll"
+                        Content="Выбрать всё"
+                        Width="100"
+                        Margin="0,0,10,0"
+                        Click="ButtonSelectAll_Click" />
+
+                <Button x:Name="ButtonCancel"
+                        Content="Отмена"
+                        Width="80"
+                        Margin="0,0,10,0"
+                        IsCancel="True"
+                        Click="ButtonCancel_Click" />
+
+                <Button x:Name="ButtonOK"
+                        Content="OK"
+                        Width="80"
+                        IsDefault="True"
+                        Click="ButtonOK_Click"
+                        Style="{StaticResource PrimaryButton}" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>
