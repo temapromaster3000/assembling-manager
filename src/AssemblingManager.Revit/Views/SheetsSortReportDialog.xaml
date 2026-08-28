@@ -1,0 +1,55 @@
+<Window x:Class="AssemblingManager.Revit.Views.SheetsSortReportDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Сортировка листов"
+        Width="420"
+        SizeToContent="Height"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/AssemblingManager;component/Styles/Common.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Text="Сортировка листов завершена."
+                   FontWeight="Bold"
+                   Margin="0,0,0,12" />
+
+        <TextBlock Grid.Row="1"
+                   x:Name="SummaryText"
+                   Margin="0,0,0,10" />
+
+        <TextBlock Grid.Row="2"
+                   x:Name="RenameListText"
+                   TextWrapping="Wrap"
+                   Margin="0,0,0,10" />
+
+        <TextBlock Grid.Row="3"
+                   x:Name="WarningText"
+                   TextWrapping="Wrap"
+                   Foreground="#FFB00C00"
+                   Margin="0,0,0,10" />
+
+        <Button Grid.Row="4"
+                Content="OK"
+                Width="80"
+                Margin="0,15,0,0"
+                HorizontalAlignment="Right"
+                IsDefault="True"
+                IsCancel="True"
+                Click="ButtonOK_Click"
+                Style="{StaticResource PrimaryButton}" />
+    </Grid>
+</Window>

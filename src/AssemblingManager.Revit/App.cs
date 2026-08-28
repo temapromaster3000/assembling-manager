@@ -54,6 +54,17 @@ namespace AssemblingManager.Revit
                 placeViewsButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Icon32.png");
                 placeViewsButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Icon16.png");
 
+                PushButtonData sortSheetsButtonData = new PushButtonData(
+                    "SortSheets",
+                    "Сортировка листов",
+                    assemblyPath,
+                    "AssemblingManager.Revit.Commands.SortSheetsCommand");
+
+                PushButton sortSheetsButton = sheetsPanel.AddItem(sortSheetsButtonData) as PushButton;
+                sortSheetsButton.ToolTip = "Удалить пустые листы, привести имена листов к именам сборок и перенумеровать листы выбранной группы.";
+                sortSheetsButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Icon32.png");
+                sortSheetsButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Icon16.png");
+
                 return Result.Succeeded;
             }
             catch (Exception ex)

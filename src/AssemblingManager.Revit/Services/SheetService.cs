@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using Autodesk.Revit.DB;
 using AssemblingManager.Core.Common;
@@ -164,6 +165,57 @@ namespace AssemblingManager.Revit.Services
             }
 
             return placed;
+        }
+
+        public HashSet<string> GetAssemblyNames(Document doc)
+        {
+            HashSet<string> names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (AssemblyInstance assembly in new FilteredElementCollector(doc).OfClass(typeof(AssemblyInstance)).Cast<AssemblyInstance>())
+            {
+                if (!string.IsNullOrEmpty(assembly.Name))
+                {
+                    names.Add(assembly.Name);
+                }
+            }
+
+            return names;
+        }
+
+        public HashSet<ElementId> GetSheetIdsWithMeaningfulContent(Document doc, HashSet<string> assemblyNames)
+        {
+            HashSet<ElementId> result = new HashSet<ElementId>();
+
+            foreach (Viewport viewport in new FilteredElementCollector(doc).OfClass(typeof(Viewport)).Cast<Viewport>())
+            {
+                result.Add(viewport.SheetId);
+            }
+
+            foreach (ScheduleSheetInstance instance in new FilteredElementCollector(doc).OfClass(typeof(ScheduleSheetInstance)).Cast<ScheduleSheetInstance>())
+            {
+                ViewSchedule schedule = doc.GetElement(instance.ScheduleId) as ViewSchedule;
+                if (schedule == null)
+                {
+                    continue;
+                }
+
+                string scheduleName = schedule.Name ?? string.Empty;
+                bool isAssemblySchedule =
+                    scheduleName.EndsWith(ScheduleService.ScheduleSuffix, StringComparison.Ordinal) ||
+                    assemblyNames.Contains(ParseBaseName(scheduleName));
+
+                if (isAssemblySchedule)
+                {
+                    result.Add(instance.OwnerViewId);
+                }
+            }
+
+            return result;
+        }
+
+        public bool IsSheetEmpty(ViewSheet sheet, HashSet<ElementId> sheetsWithContent)
+        {
+            return !sheetsWithContent.Contains(sheet.Id);
         }
 
         public List<ObjectViewGroup> GroupViewsByObject(Document doc, IList<ElementId> viewIds)
@@ -983,6 +1035,75 @@ namespace AssemblingManager.Revit.Services
                     name = $"{objectName} ({attempt + 1})";
                 }
             }
+        }
+
+        public static string SanitizeSheetName(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+            {
+                return name;
+            }
+
+            StringBuilder builder = new StringBuilder(name.Length);
+
+            foreach (char c in name)
+            {
+                if (IsForbiddenSheetNameCharacter(c))
+                {
+                    builder.Append('-');
+                    continue;
+                }
+
+                builder.Append(c);
+            }
+
+            string result = builder.ToString().Trim();
+
+            if (!string.Equals(result, name, StringComparison.Ordinal))
+            {
+                Logger.Warn($"Sheet name '{name}' was sanitized to '{result}'.");
+            }
+
+            return result;
+        }
+
+        private static bool IsForbiddenSheetNameCharacter(char c)
+        {
+            if (c < 0x20 || c == 0x7F)
+            {
+                return true;
+            }
+
+            switch (c)
+            {
+                case '\\':
+                case ':':
+                case '{':
+                case '}':
+                case '[':
+                case ']':
+                case ';':
+                case '<':
+                case '>':
+                case '?':
+                case '~':
+                case '|':
+                case '"':
+                    return true;
+            }
+
+            switch (char.GetUnicodeCategory(c))
+            {
+                case System.Globalization.UnicodeCategory.Control:
+                case System.Globalization.UnicodeCategory.Format:
+                case System.Globalization.UnicodeCategory.Surrogate:
+                case System.Globalization.UnicodeCategory.LineSeparator:
+                case System.Globalization.UnicodeCategory.ParagraphSeparator:
+                case System.Globalization.UnicodeCategory.OtherNotAssigned:
+                    return true;
+            }
+
+            return false;
         }
     }
 }

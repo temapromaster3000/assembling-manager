@@ -1,0 +1,115 @@
+<Window x:Class="AssemblingManager.Revit.Views.SheetsSortDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Сортировка листов"
+        Width="620"
+        Height="560"
+        MinWidth="480"
+        MinHeight="420"
+        WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/AssemblingManager;component/Styles/Common.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <Style TargetType="TreeViewItem">
+                <Style.Triggers>
+                    <Trigger Property="IsSelected" Value="True">
+                        <Setter Property="Background" Value="#FFC9E1FF" />
+                        <Setter Property="Foreground" Value="#FF0B4FA8" />
+                        <Setter Property="FontWeight" Value="SemiBold" />
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <GroupBox Grid.Row="0"
+                  Header="Группа листов (как в диспетчере листов)">
+            <TreeView x:Name="GroupTreeView"
+                      Margin="4"
+                      SelectedItemChanged="GroupTreeView_SelectedItemChanged">
+                <TreeView.ItemTemplate>
+                    <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                        <TextBlock Text="{Binding DisplayName}" />
+                    </HierarchicalDataTemplate>
+                </TreeView.ItemTemplate>
+            </TreeView>
+        </GroupBox>
+
+        <Grid Grid.Row="1"
+              Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Text="Номер первого листа:"
+                       VerticalAlignment="Center"
+                       Margin="0,0,8,0" />
+
+            <TextBox x:Name="StartNumberTextBox"
+                     Grid.Column="1"
+                     Width="80"
+                     Height="26"
+                     Padding="4,3,4,3"
+                     VerticalContentAlignment="Center"
+                     Text="1"
+                     TextChanged="StartNumberTextBox_TextChanged" />
+
+            <TextBlock Grid.Column="2"
+                       Text="(только целое число)"
+                       VerticalAlignment="Center"
+                       Margin="8,0,0,0"
+                       Foreground="Gray" />
+        </Grid>
+
+        <TextBlock Grid.Row="2"
+                   x:Name="SummaryTextBlock"
+                   Margin="0,10,0,0"
+                   TextWrapping="Wrap"
+                   FontWeight="Bold" />
+
+        <Grid Grid.Row="3"
+              Margin="0,15,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0"
+                       x:Name="HintTextBlock"
+                       VerticalAlignment="Center"
+                       Foreground="Gray"
+                       TextWrapping="Wrap" />
+
+            <StackPanel Grid.Column="1"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right">
+                <Button x:Name="ButtonCancel"
+                        Content="Отмена"
+                        Width="80"
+                        Margin="0,0,10,0"
+                        IsCancel="True"
+                        Click="ButtonCancel_Click" />
+
+                <Button x:Name="ButtonOK"
+                        Content="Выполнить"
+                        Width="120"
+                        IsDefault="True"
+                        IsEnabled="False"
+                        Click="ButtonOK_Click"
+                        Style="{StaticResource PrimaryButton}" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>
