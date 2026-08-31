@@ -107,10 +107,78 @@ namespace AssemblingManager.Revit.Services
         }
     }
 
+    public class ScheduleGroupNode
+    {
+        public string Name { get; }
+        public IList<ScheduleGroupNode> Children { get; }
+        public ViewSchedule Schedule { get; }
+        public ScheduleGroupNode Parent { get; set; }
+
+        public bool IsSchedule
+        {
+            get { return Schedule != null; }
+        }
+
+        public List<ViewSchedule> GetAllSchedules()
+        {
+            List<ViewSchedule> schedules = new List<ViewSchedule>();
+
+            if (IsSchedule && Schedule != null)
+            {
+                schedules.Add(Schedule);
+            }
+
+            foreach (ScheduleGroupNode child in Children)
+            {
+                schedules.AddRange(child.GetAllSchedules());
+            }
+
+            return schedules;
+        }
+
+        public string DisplayName
+        {
+            get
+            {
+                if (IsSchedule)
+                {
+                    return Schedule.Name;
+                }
+
+                return $"{Name} ({CountSchedules()})";
+            }
+        }
+
+        public ScheduleGroupNode(string name)
+        {
+            Name = name;
+            Children = new List<ScheduleGroupNode>();
+        }
+
+        public ScheduleGroupNode(ViewSchedule schedule)
+        {
+            Children = new List<ScheduleGroupNode>();
+            Schedule = schedule;
+        }
+
+        public int CountSchedules()
+        {
+            int count = IsSchedule ? 1 : 0;
+
+            foreach (ScheduleGroupNode child in Children)
+            {
+                count += child.CountSchedules();
+            }
+
+            return count;
+        }
+    }
+
     public class BrowserGroupService
     {
         private static readonly NaturalStringComparer NameComparer = new NaturalStringComparer();
         private const string EmptyValueName = "(без группы)";
+        private const string UnknownFolderName = "???";
 
         public List<ViewGroupNode> BuildGroupTree(Document doc)
         {
@@ -298,6 +366,92 @@ namespace AssemblingManager.Revit.Services
                     {
                         SheetGroupNode sheetNode = new SheetGroupNode(sheet) { Parent = node };
                         node.Children.Add(sheetNode);
+                    }
+                }
+
+                nodes.Add(node);
+            }
+
+            return nodes;
+        }
+
+        public List<ScheduleGroupNode> BuildScheduleTree(Document doc)
+        {
+            List<ViewSchedule> schedules = new FilteredElementCollector(doc)
+                .OfClass(typeof(ViewSchedule))
+                .Cast<ViewSchedule>()
+                .Where(s => ScheduleService.IsAvailableSchedule(s))
+                .OrderBy(s => s.Name, NameComparer)
+                .ToList();
+
+            BrowserOrganization organization = null;
+
+            try
+            {
+                organization = BrowserOrganization.GetCurrentBrowserOrganizationForViews(doc);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Could not read schedules browser organization: {ex.Message}");
+            }
+
+            Logger.Info($"BrowserGroupService: found {schedules.Count} schedules.");
+
+            GroupNodeBuilder root = new GroupNodeBuilder(string.Empty);
+
+            foreach (ViewSchedule schedule in schedules)
+            {
+                List<string> path = GetFolderPath(organization, schedule);
+                path = path
+                    .Where(s => !string.IsNullOrWhiteSpace(s) && s != UnknownFolderName)
+                    .ToList();
+
+                if (path.Count == 0)
+                {
+                    path = new List<string> { EmptyValueName };
+                }
+
+                GroupNodeBuilder current = root;
+
+                foreach (string segment in path)
+                {
+                    GroupNodeBuilder next;
+                    if (!current.Children.TryGetValue(segment, out next))
+                    {
+                        next = new GroupNodeBuilder(segment);
+                        current.Children[segment] = next;
+                    }
+                    current = next;
+                }
+
+                current.ViewIds.Add(schedule.Id);
+            }
+
+            return ConvertToScheduleNodes(root.Children, doc);
+        }
+
+        private List<ScheduleGroupNode> ConvertToScheduleNodes(Dictionary<string, GroupNodeBuilder> builders, Document doc)
+        {
+            List<ScheduleGroupNode> nodes = new List<ScheduleGroupNode>();
+
+            foreach (KeyValuePair<string, GroupNodeBuilder> pair in builders.OrderBy(p => p.Key, NameComparer))
+            {
+                GroupNodeBuilder builder = pair.Value;
+                ScheduleGroupNode node = new ScheduleGroupNode(builder.Name);
+
+                foreach (ScheduleGroupNode child in ConvertToScheduleNodes(builder.Children, doc))
+                {
+                    child.Parent = node;
+                    node.Children.Add(child);
+                }
+
+                foreach (ElementId scheduleId in builder.ViewIds)
+                {
+                    ViewSchedule schedule = doc.GetElement(scheduleId) as ViewSchedule;
+                    if (schedule != null)
+                    {
+                        ScheduleGroupNode scheduleNode = new ScheduleGroupNode(schedule) { Parent = node };
+                        node.Children.Add(scheduleNode);
                     }
                 }
 

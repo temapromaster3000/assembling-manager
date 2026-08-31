@@ -50,7 +50,7 @@ namespace AssemblingManager.Revit.Services
             return items;
         }
 
-        private bool IsAvailableSchedule(ViewSchedule schedule)
+        public static bool IsAvailableSchedule(ViewSchedule schedule)
         {
             if (schedule.IsTemplate)
             {

@@ -18,6 +18,7 @@ namespace AssemblingManager.Revit
 
                 RibbonPanel assembliesPanel = application.CreateRibbonPanel(tabName, "Сборки");
                 RibbonPanel sheetsPanel = application.CreateRibbonPanel(tabName, "Листы");
+                RibbonPanel draftingPanel = application.CreateRibbonPanel(tabName, "Оформление");
 
                 string assemblyPath = Assembly.GetExecutingAssembly().Location;
 
@@ -64,6 +65,17 @@ namespace AssemblingManager.Revit
                 sortSheetsButton.ToolTip = "Удалить пустые листы, привести имена листов к именам сборок и перенумеровать листы выбранной группы.";
                 sortSheetsButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Icon32.png");
                 sortSheetsButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Icon16.png");
+
+                PushButtonData positionsButtonData = new PushButtonData(
+                    "AssignAssemblyPositions",
+                    "Проставить\nпозиции",
+                    assemblyPath,
+                    "AssemblingManager.Revit.Commands.AssignAssemblyPositionsCommand");
+
+                PushButton positionsButton = draftingPanel.AddItem(positionsButtonData) as PushButton;
+                positionsButton.ToolTip = "Проставить номера позиций по строкам выбранных спецификаций и пропустить строки по ключевым словам.";
+                positionsButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Icon32.png");
+                positionsButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Icon16.png");
 
                 return Result.Succeeded;
             }
