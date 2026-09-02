@@ -131,6 +131,11 @@ namespace AssemblingManager.Revit.Views
 
         public List<ViewSchedule> SelectedSchedules { get; private set; }
 
+        public bool MergeSchedules
+        {
+            get { return MergeSchedulesCheckBox != null && MergeSchedulesCheckBox.IsChecked == true; }
+        }
+
         public AssignPositionsDialog(List<ScheduleGroupNode> scheduleRoots, IReadOnlyList<string> initialKeywords)
         {
             InitializeComponent();
@@ -348,6 +353,17 @@ namespace AssemblingManager.Revit.Views
 
             SummaryTextBlock.Text = $"Выбрано спецификаций: {selectedCount}. Ключевых слов: {Keywords.Count}.";
             ButtonOK.IsEnabled = selectedCount > 0;
+
+            bool mergeEnabled = selectedCount > 1;
+            MergeSchedulesCheckBox.IsEnabled = mergeEnabled;
+
+            if (!mergeEnabled)
+            {
+                MergeSchedulesCheckBox.IsChecked = false;
+            }
+
+            string mergeNote = MergeSchedulesCheckBox.IsChecked == true ? " Объединение включено." : string.Empty;
+            SummaryTextBlock.Text += mergeNote;
         }
 
         private void ButtonOK_Click(object sender, RoutedEventArgs e)

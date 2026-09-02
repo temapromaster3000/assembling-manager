@@ -88,6 +88,27 @@ namespace AssemblingManager.Revit.Commands
                 Logger.Warn($"Parameter '{NameParameterName}' not found. Keyword skipping is disabled.");
             }
 
+            bool mergeSchedules = dialog.MergeSchedules && selectedSchedules.Count > 1;
+            MergedNumberingState mergedState = null;
+
+            if (mergeSchedules)
+            {
+                if (nameParameterId == null)
+                {
+                    Logger.Warn("Merge schedules requested but parameter 'ADSK_Наименование' not found; falling back to normal numbering.");
+                    TaskDialog.Show(
+                        Constants.PluginName,
+                        "Объединение спецификаций недоступно: в модели не найден параметр «ADSK_Наименование».\n" +
+                        "Нумерация будет выполнена отдельно по каждой спецификации.");
+                    mergeSchedules = false;
+                }
+                else
+                {
+                    mergedState = new MergedNumberingState();
+                    Logger.Info("Merged schedules numbering enabled.");
+                }
+            }
+
             List<Category> elementCategories;
             Dictionary<ElementId, FamilySymbol> selectedTagSymbols = new Dictionary<ElementId, FamilySymbol>();
             int minOffsetMm = TagPresetStorage.DefaultMinOffsetMm;
@@ -186,7 +207,13 @@ namespace AssemblingManager.Revit.Commands
 
                         foreach (ViewSchedule schedule in selectedSchedules)
                         {
-                            bool handled = ProcessSchedule(document, schedule, positionParameterId, nameParameterId, keywords);
+                            bool handled = ProcessSchedule(
+                                document,
+                                schedule,
+                                positionParameterId,
+                                nameParameterId,
+                                keywords,
+                                mergedState);
 
                             if (handled)
                             {
@@ -205,6 +232,13 @@ namespace AssemblingManager.Revit.Commands
                             {
                                 skippedCount++;
                             }
+                        }
+
+                        if (mergedState != null)
+                        {
+                            Logger.Info(
+                                $"Merged numbering finished: last position {mergedState.LastPosition}, " +
+                                $"reused {mergedState.ReusedCount}, new {mergedState.NewCount}.");
                         }
 
                         document.Regenerate();
@@ -251,7 +285,8 @@ namespace AssemblingManager.Revit.Commands
             {
                 MainInstruction = $"Обработано спецификаций: {processedCount}",
                 MainContent = $"Пропущено спецификаций: {skippedCount}\n" +
-                              $"Время работы: {stopwatch.Elapsed.TotalSeconds:F1} с",
+                              $"Время работы: {stopwatch.Elapsed.TotalSeconds:F1} с" +
+                              (mergeSchedules ? "\nОбъединение спецификаций: включено" : string.Empty),
                 CommonButtons = TaskDialogCommonButtons.Ok
             };
 
@@ -280,7 +315,8 @@ namespace AssemblingManager.Revit.Commands
             ViewSchedule schedule,
             ElementId positionParameterId,
             ElementId nameParameterId,
-            List<string> keywords)
+            List<string> keywords,
+            MergedNumberingState mergedState)
         {
             string scheduleName = schedule.Name;
 
@@ -362,6 +398,8 @@ namespace AssemblingManager.Revit.Commands
             int skippedGroups = 0;
             int totalSet = 0;
             int totalMissing = 0;
+            int reusedCount = 0;
+            int newCount = 0;
             bool readbackLogged = false;
             Dictionary<string, int> missingByCategory = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
@@ -375,7 +413,37 @@ namespace AssemblingManager.Revit.Commands
                     continue;
                 }
 
-                position++;
+                string identityName = mergedState != null ? GetGroupIdentityName(pair.Value, nameParameterId) : null;
+                int assignedPosition;
+
+                if (mergedState != null
+                    && identityName != null
+                    && mergedState.TryGetPosition(identityName, out int existingPosition))
+                {
+                    assignedPosition = existingPosition;
+                    reusedCount++;
+                    mergedState.CountReused();
+                }
+                else
+                {
+                    if (mergedState != null)
+                    {
+                        assignedPosition = mergedState.NextPosition();
+                    }
+                    else
+                    {
+                        position++;
+                        assignedPosition = position;
+                    }
+
+                    if (mergedState != null && identityName != null)
+                    {
+                        mergedState.Register(identityName, assignedPosition);
+                    }
+
+                    newCount++;
+                }
+
                 bool groupSet = false;
 
                 foreach (Element element in pair.Value)
@@ -390,7 +458,7 @@ namespace AssemblingManager.Revit.Commands
                         missingByCategory.TryGetValue(categoryName, out count);
                         missingByCategory[categoryName] = count + 1;
 
-                        if (position == 1 && !groupSet)
+                        if (assignedPosition == 1 && !groupSet)
                         {
                             Logger.Info($"Element {element.Id} (category '{categoryName}') has no parameter '{PositionParameterName}'.");
                         }
@@ -404,11 +472,11 @@ namespace AssemblingManager.Revit.Commands
 
                         if (positionParameter.StorageType == StorageType.String)
                         {
-                            ok = positionParameter.Set(position.ToString());
+                            ok = positionParameter.Set(assignedPosition.ToString());
                         }
                         else
                         {
-                            ok = positionParameter.Set(position);
+                            ok = positionParameter.Set(assignedPosition);
                         }
 
                         totalSet++;
@@ -416,7 +484,7 @@ namespace AssemblingManager.Revit.Commands
 
                         if (!ok)
                         {
-                            Logger.Warn($"Element {element.Id}: parameter.Set returned FALSE for position {position}.");
+                            Logger.Warn($"Element {element.Id}: parameter.Set returned FALSE for position {assignedPosition}.");
                         }
 
                         if (!readbackLogged)
@@ -435,24 +503,26 @@ namespace AssemblingManager.Revit.Commands
                             }
 
                             Logger.Info(
-                                $"First write: element {element.Id}, category '{element.Category?.Name}', set={position}, readback='{readback}', " +
+                                $"First write: element {element.Id}, category '{element.Category?.Name}', set={assignedPosition}, readback='{readback}', " +
                                 $"definition='{positionParameter.Definition?.Name}', storage={positionParameter.StorageType}, readOnly={positionParameter.IsReadOnly}.");
                         }
                     }
                     catch (Exception ex)
                     {
-                        Logger.Warn($"Could not set position {position} on element {element.Id}: {ex.Message}");
+                        Logger.Warn($"Could not set position {assignedPosition} on element {element.Id}: {ex.Message}");
                     }
                 }
 
                 if (!groupSet)
                 {
-                    Logger.Warn($"Group at position {position} could not be written (no element has parameter '{PositionParameterName}').");
+                    Logger.Warn($"Group at position {assignedPosition} could not be written (no element has parameter '{PositionParameterName}').");
                 }
             }
 
             Logger.Info(
-                $"Schedule '{scheduleName}': positions {position} (set {totalSet}, missing {totalMissing}, {skippedGroups} groups skipped by keywords, {groups.Count} groups total).");
+                mergedState != null
+                    ? $"Schedule '{scheduleName}': merged numbering (new {newCount}, reused {reusedCount}, set {totalSet}, missing {totalMissing}, {skippedGroups} groups skipped by keywords, {groups.Count} groups total)."
+                    : $"Schedule '{scheduleName}': positions {position} (set {totalSet}, missing {totalMissing}, {skippedGroups} groups skipped by keywords, {groups.Count} groups total).");
 
             if (missingByCategory.Count > 0)
             {
@@ -476,6 +546,65 @@ namespace AssemblingManager.Revit.Commands
             }
 
             return keywords.Any(k => elementName.IndexOf(k, StringComparison.OrdinalIgnoreCase) >= 0);
+        }
+
+        private static string GetGroupIdentityName(List<Element> groupElements, ElementId nameParameterId)
+        {
+            if (nameParameterId == null || nameParameterId == ElementId.InvalidElementId)
+            {
+                return null;
+            }
+
+            foreach (Element element in groupElements)
+            {
+                Parameter nameParameter = element.LookupParameter(NameParameterName);
+                string value = nameParameter != null && nameParameter.HasValue ? nameParameter.AsString() : null;
+
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    return value.Trim();
+                }
+            }
+
+            return null;
+        }
+
+        private class MergedNumberingState
+        {
+            private readonly Dictionary<string, int> _positionsByName =
+                new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+            public int LastPosition { get; private set; }
+            public int ReusedCount { get; private set; }
+            public int NewCount { get; private set; }
+
+            public bool TryGetPosition(string identityName, out int position)
+            {
+                return _positionsByName.TryGetValue(identityName, out position);
+            }
+
+            public int NextPosition()
+            {
+                LastPosition++;
+                return LastPosition;
+            }
+
+            public void Register(string identityName, int position)
+            {
+                _positionsByName[identityName] = position;
+
+                if (position > LastPosition)
+                {
+                    LastPosition = position;
+                }
+
+                NewCount++;
+            }
+
+            public void CountReused()
+            {
+                ReusedCount++;
+            }
         }
 
         private static List<ScheduleField> GetGroupingFields(ScheduleDefinition definition, ElementId positionParameterId)
