@@ -3,6 +3,9 @@ bin/
 obj/
 out/
 
+# Release script output
+artifacts/
+
 # Visual Studio / Rider
 .vs/
 *.user
