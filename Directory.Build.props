@@ -15,6 +15,20 @@
     <RevitVersion>2025</RevitVersion>
   </PropertyGroup>
 
+  <PropertyGroup Condition="Exists('$(MSBuildThisFileDirectory)Version.txt')">
+    <PluginVersion>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)Version.txt').Trim())</PluginVersion>
+    <Version>$(PluginVersion)</Version>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'AssemblingManager.Updater'">
+    <TargetFramework>net48</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)bin\$(Configuration)\Updater\</BaseOutputPath>
+    <OutputPath>$(BaseOutputPath)</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+  </PropertyGroup>
+
   <PropertyGroup>
     <LangVersion>12</LangVersion>
     <Nullable>disable</Nullable>

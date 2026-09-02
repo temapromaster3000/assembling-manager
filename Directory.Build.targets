@@ -39,7 +39,7 @@
     <PackageReference Update="Nice3point.Revit.Api.RevitAPIUI" Version="2025.*" />
   </ItemGroup>
 
-  <Target Name="ValidateRevitVersion" BeforeTargets="PrepareForBuild" Condition="'$(TargetFramework)' == 'net48'">
+  <Target Name="ValidateRevitVersion" BeforeTargets="PrepareForBuild" Condition="'$(TargetFramework)' == 'net48' And '$(MSBuildProjectName)' != 'AssemblingManager.Updater'">
     <Error Condition="'$(RevitVersion)' == ''"
            Text="RevitVersion не указан. Используйте конфигурацию Debug.R21/.../Debug.R25 или передайте -p:RevitVersion=2021 (2022, 2023, 2024)." />
     <Error Condition="'$(RevitVersion)' != '2021' And '$(RevitVersion)' != '2022' And '$(RevitVersion)' != '2023' And '$(RevitVersion)' != '2024'"
