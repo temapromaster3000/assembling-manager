@@ -16,11 +16,23 @@ namespace AssemblingManager.Revit
                 string tabName = Constants.PluginName;
                 application.CreateRibbonTab(tabName);
 
+                string assemblyPath = Assembly.GetExecutingAssembly().Location;
+
+                RibbonPanel settingsPanel = application.CreateRibbonPanel(tabName, "Настройки");
+                PushButtonData settingsButtonData = new PushButtonData(
+                    "Settings",
+                    "Настройки",
+                    assemblyPath,
+                    "AssemblingManager.Revit.Commands.SettingsCommand");
+
+                PushButton settingsButton = settingsPanel.AddItem(settingsButtonData) as PushButton;
+                settingsButton.ToolTip = "Версия плагина и проверка обновлений.";
+                settingsButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Icon32.png");
+                settingsButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Icon16.png");
+
                 RibbonPanel assembliesPanel = application.CreateRibbonPanel(tabName, "Сборки");
                 RibbonPanel sheetsPanel = application.CreateRibbonPanel(tabName, "Листы");
                 RibbonPanel draftingPanel = application.CreateRibbonPanel(tabName, "Оформление");
-
-                string assemblyPath = Assembly.GetExecutingAssembly().Location;
 
                 PushButtonData buttonData = new PushButtonData(
                     "CreateAssemblyViews",
