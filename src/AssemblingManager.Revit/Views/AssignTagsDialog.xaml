@@ -1,0 +1,157 @@
+<Window x:Class="AssemblingManager.Revit.Views.AssignTagsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Проставить марки"
+        Width="760"
+        Height="600"
+        MinWidth="620"
+        MinHeight="480"
+        WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/AssemblingManager;component/Styles/Common.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Text="Выберите марку для каждой категории элементов (состоит из семейства и типоразмера):"
+                   FontWeight="Bold"
+                   TextWrapping="Wrap"
+                   Margin="0,0,0,12" />
+
+        <ScrollViewer Grid.Row="1"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Auto">
+            <ItemsControl x:Name="CategoriesList">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="240" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding CategoryName}"
+                                       VerticalAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,12,0"
+                                       FontWeight="SemiBold" />
+
+                            <ComboBox Grid.Column="1"
+                                      ItemsSource="{Binding Options}"
+                                      SelectedItem="{Binding Selected, Mode=TwoWay}"
+                                      DisplayMemberPath="Name"
+                                      MinWidth="320"
+                                      Height="26"
+                                      VerticalContentAlignment="Center"
+                                      IsEnabled="{Binding HasOptions}" />
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <Grid Grid.Row="2"
+              Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0"
+                        VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal"
+                            Margin="0,0,0,8">
+                    <TextBlock Text="Мин. смещение марки от элемента (мм):"
+                               VerticalAlignment="Center"
+                               Margin="0,0,8,0" />
+                    <TextBox x:Name="MinOffsetTextBox"
+                             Width="70"
+                             Height="26"
+                             Padding="4,3,4,3"
+                             VerticalContentAlignment="Center"
+                             TextChanged="MinOffsetTextBox_TextChanged"
+                             ToolTip="Минимальное расстояние от центра элемента до марки при поиске места (не менее 200 мм). Больше — марки дальше от элементов. Значение в модельных мм, от масштаба вида не зависит." />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal"
+                            Margin="0,0,0,8">
+                    <TextBlock Text="Высота зоны марки (мм, эталон — масштаб 1:100):"
+                               VerticalAlignment="Center"
+                               Margin="0,0,8,0" />
+                    <TextBox x:Name="ZoneHeightTextBox"
+                             Width="70"
+                             Height="26"
+                             Padding="4,3,4,3"
+                             VerticalContentAlignment="Center"
+                             TextChanged="ZoneHeightTextBox_TextChanged"
+                             ToolTip="Реальная видимая высота марки (текст + полка) в модельных мм при масштабе 1:100. Зона, в которую не должны попадать другие марки, откладывается от полки. В видах с другим масштабом пересчитывается пропорционально." />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal"
+                            Margin="0,0,0,8">
+                    <TextBlock Text="Текст марки:"
+                               VerticalAlignment="Center"
+                               Margin="0,0,8,0" />
+                    <RadioButton x:Name="RadioTextAbove"
+                                 Content="Только над полкой"
+                                 GroupName="TagTextPosition"
+                                 IsChecked="True"
+                                 VerticalAlignment="Center"
+                                 Margin="0,0,12,0" />
+                    <RadioButton x:Name="RadioTextBelow"
+                                 Content="Над и под полкой"
+                                 GroupName="TagTextPosition"
+                                 VerticalAlignment="Center"
+                                 ToolTip="Высота зоны делится пополам: половина над полкой, половина под полкой." />
+                </StackPanel>
+
+                <TextBlock x:Name="MinOffsetErrorText"
+                           Foreground="Red"
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,8"
+                           Visibility="Collapsed"
+                           Text="Минимальное смещение должно быть не менее 200 мм. Введите значение больше 200." />
+
+                <TextBlock x:Name="ZoneHeightErrorText"
+                           Foreground="Red"
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,8"
+                           Visibility="Collapsed"
+                           Text="Высота зоны марки должна быть в диапазоне 50–2000 мм." />
+
+                <TextBlock x:Name="SummaryTextBlock"
+                           TextWrapping="Wrap"
+                           FontWeight="Bold" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Bottom">
+                <Button x:Name="ButtonCancel"
+                        Content="Отмена"
+                        Width="80"
+                        Margin="0,0,10,0"
+                        IsCancel="True"
+                        Click="ButtonCancel_Click" />
+
+                <Button x:Name="ButtonOK"
+                        Content="Выполнить"
+                        Width="120"
+                        IsDefault="True"
+                        Click="ButtonOK_Click"
+                        Style="{StaticResource PrimaryButton}" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

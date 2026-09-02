@@ -6,6 +6,7 @@ using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using AssemblingManager.Core.Common;
+using AssemblingManager.Core.Models;
 using AssemblingManager.Revit.Services;
 using AssemblingManager.Revit.Views;
 
@@ -87,11 +88,85 @@ namespace AssemblingManager.Revit.Commands
                 Logger.Warn($"Parameter '{NameParameterName}' not found. Keyword skipping is disabled.");
             }
 
+            List<Category> elementCategories;
+            Dictionary<ElementId, FamilySymbol> selectedTagSymbols = new Dictionary<ElementId, FamilySymbol>();
+            int minOffsetMm = TagPresetStorage.DefaultMinOffsetMm;
+            int zoneHeightMm = TagPresetStorage.DefaultZoneHeightMm;
+            bool textBelowShelf = false;
+
+            TagService tagService = new TagService();
+            elementCategories = CollectElementCategories(document, selectedSchedules, tagService);
+            Dictionary<ElementId, List<TagService.TagSymbolOption>> symbolOptions =
+                tagService.BuildTagSymbolOptions(document, elementCategories);
+
+            if (elementCategories.Count > 0)
+            {
+                if (symbolOptions.Count == 0)
+                {
+                    Logger.Warn("No tag symbol options found for selected schedules.");
+                    TaskDialog.Show(
+                        Constants.PluginName,
+                        "Для категорий элементов выбранных спецификаций не найдено подходящих марок в проекте.\n" +
+                        "Позиции будут записаны, марки — пропущены.\n\n" +
+                        "Проверьте лог плагина: там видны категории элементов и найденные марки.");
+                }
+
+                List<TagCategoryItem> dialogCategories = BuildTagCategoryItems(elementCategories, symbolOptions);
+                IReadOnlyDictionary<string, string> preset = TagPresetStorage.ReadPreset(document);
+                int presetMinOffsetMm = TagPresetStorage.ReadMinOffsetMm(document);
+                int presetZoneHeightMm = TagPresetStorage.ReadZoneHeightMm(document);
+                bool presetTextBelowShelf = TagPresetStorage.ReadTextBelowShelf(document);
+
+                AssignTagsDialog tagsDialog = new AssignTagsDialog(
+                    dialogCategories,
+                    preset,
+                    presetMinOffsetMm,
+                    presetZoneHeightMm,
+                    presetTextBelowShelf);
+                bool? tagsDialogResult = tagsDialog.ShowDialog();
+
+                if (tagsDialogResult != true)
+                {
+                    Logger.Info("User cancelled the tags dialog.");
+                    return Result.Cancelled;
+                }
+
+                selectedTagSymbols = new Dictionary<ElementId, FamilySymbol>(
+                    tagsDialog.SelectedSymbolsByCategoryId);
+                minOffsetMm = tagsDialog.MinOffsetMm;
+                zoneHeightMm = tagsDialog.ZoneHeightMm;
+                textBelowShelf = tagsDialog.TextBelowShelf;
+
+                TagPresetStorage.SavePreset(
+                    document,
+                    BuildTagPreset(dialogCategories, tagsDialog.SelectedSymbolsByCategoryId),
+                    minOffsetMm,
+                    zoneHeightMm,
+                    textBelowShelf);
+
+                Logger.Info($"Selected tag symbols: {selectedTagSymbols.Count} categories.");
+                Logger.Info($"Min offset to element: {minOffsetMm} mm.");
+                Logger.Info($"Zone height: {zoneHeightMm} mm, text below shelf: {textBelowShelf}.");
+            }
+            else
+            {
+                Logger.Warn("No element categories found for selected schedules; tags step skipped.");
+            }
+
+            Dictionary<ElementId, TagService.TagSymbolOption> tagChoices = null;
+
+            if (selectedTagSymbols.Count > 0)
+            {
+                tagChoices = BuildTagSymbolChoices(selectedTagSymbols);
+                tagService.PrepareTagDimensions(document, selectedSchedules, tagChoices);
+            }
+
             Logger.Info($"Selected schedules: {selectedSchedules.Count}. Keywords: {keywords.Count}.");
 
             Stopwatch stopwatch = Stopwatch.StartNew();
             int processedCount = 0;
             int skippedCount = 0;
+            TagPlacementResult tagResult = null;
 
             using (TransactionGroup transactionGroup = new TransactionGroup(document, "Assembling Manager"))
             {
@@ -135,6 +210,22 @@ namespace AssemblingManager.Revit.Commands
                         document.Regenerate();
                         Logger.Info("Document regenerated to refresh schedule views.");
 
+                        if (tagChoices != null && tagChoices.Count > 0)
+                        {
+                            tagResult = tagService.PlaceTags(
+                                document,
+                                selectedSchedules,
+                                tagChoices,
+                                minOffsetMm,
+                                zoneHeightMm,
+                                textBelowShelf);
+
+                            Logger.Info(
+                                $"Tags placed: created {tagResult.TagsCreatedCount}, deleted {tagResult.TagsDeletedCount}, " +
+                                $"skipped {tagResult.ElementsSkippedCount}, views {tagResult.TaggedViewsCount}, " +
+                                $"warnings {tagResult.Warnings.Count}.");
+                        }
+
                         transaction.Commit();
                         Logger.Info("Transaction committed.");
                     }
@@ -163,6 +254,22 @@ namespace AssemblingManager.Revit.Commands
                               $"Время работы: {stopwatch.Elapsed.TotalSeconds:F1} с",
                 CommonButtons = TaskDialogCommonButtons.Ok
             };
+
+            if (tagResult != null)
+            {
+                report.MainContent +=
+                    $"\n\nМарки:\nСоздано марок: {tagResult.TagsCreatedCount}\n" +
+                    $"Удалено предыдущих: {tagResult.TagsDeletedCount}\n" +
+                    $"Пропущено элементов: {tagResult.ElementsSkippedCount}\n" +
+                    $"Пропущено (смотрит в нас): {tagResult.ElementsCutSkippedCount}\n" +
+                    $"Видов с марками: {tagResult.TaggedViewsCount}";
+
+                foreach (string warning in tagResult.Warnings)
+                {
+                    report.MainContent += $"\n— {warning}";
+                }
+            }
+
             report.Show();
 
             return Result.Succeeded;
@@ -544,6 +651,74 @@ namespace AssemblingManager.Revit.Commands
             }
 
             return null;
+        }
+
+        private static List<Category> CollectElementCategories(
+            Document doc,
+            IEnumerable<ViewSchedule> schedules,
+            TagService tagService)
+        {
+            return tagService.GetElementCategories(doc, schedules);
+        }
+
+        private static List<TagCategoryItem> BuildTagCategoryItems(
+            IReadOnlyList<Category> categories,
+            IReadOnlyDictionary<ElementId, List<TagService.TagSymbolOption>> options)
+        {
+            List<TagCategoryItem> items = new List<TagCategoryItem>();
+
+            foreach (Category category in categories)
+            {
+                List<TagService.TagSymbolOption> symbolOptions;
+                options.TryGetValue(category.Id, out symbolOptions);
+
+                List<TagOptionItem> optionItems = (symbolOptions ?? new List<TagService.TagSymbolOption>())
+                    .Select(o => new TagOptionItem(o.DisplayName, o.Symbol))
+                    .ToList();
+
+                items.Add(new TagCategoryItem(category, optionItems));
+            }
+
+            return items;
+        }
+
+        private static Dictionary<ElementId, TagService.TagSymbolOption> BuildTagSymbolChoices(
+            IReadOnlyDictionary<ElementId, FamilySymbol> selectedSymbols)
+        {
+            Dictionary<ElementId, TagService.TagSymbolOption> result =
+                new Dictionary<ElementId, TagService.TagSymbolOption>();
+
+            foreach (KeyValuePair<ElementId, FamilySymbol> pair in selectedSymbols)
+            {
+                if (pair.Value == null || pair.Value.Family == null)
+                {
+                    continue;
+                }
+
+                bool isMulti = TagService.IsMultiCategoryTag(pair.Value);
+
+                result[pair.Key] = new TagService.TagSymbolOption(pair.Value, isMulti);
+            }
+
+            return result;
+        }
+
+        private static Dictionary<string, string> BuildTagPreset(
+            IEnumerable<TagCategoryItem> categories,
+            IReadOnlyDictionary<ElementId, FamilySymbol> selectedSymbols)
+        {
+            Dictionary<string, string> preset = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (TagCategoryItem item in categories)
+            {
+                FamilySymbol symbol;
+                if (selectedSymbols.TryGetValue(item.Category.Id, out symbol))
+                {
+                    preset[item.CategoryName] = symbol.Family.Name + TagPresetStorage.EntrySeparator + symbol.Name;
+                }
+            }
+
+            return preset;
         }
     }
 }
