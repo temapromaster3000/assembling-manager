@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>AssemblingManager.Updater</AssemblyName>
+    <RootNamespace>AssemblingManager.Updater</RootNamespace>
+  </PropertyGroup>
+</Project>
