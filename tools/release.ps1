@@ -37,8 +37,9 @@ gh auth status | Out-Null
 Assert-LastExitCode "gh is not authenticated. Run 'gh auth login' first."
 
 $isccCandidates = @(
-    Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe",
-    Join-Path $env:ProgramFiles "Inno Setup 6\ISCC.exe"
+    (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"),
+    (Join-Path $env:ProgramFiles "Inno Setup 6\ISCC.exe"),
+    "D:\Soft\Inno Setup 6\ISCC.exe"
 )
 $iscc = $isccCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $iscc) {
