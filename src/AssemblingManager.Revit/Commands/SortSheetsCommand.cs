@@ -268,7 +268,9 @@ namespace AssemblingManager.Revit.Commands
             Logger.Info("Sheet sort order:");
             foreach (SheetAnalysis analysis in ordered)
             {
-                Logger.Info($"  '{SheetService.GetSheetName(analysis.Sheet)}' (anchor: {GetAnchor(analysis, SheetService.GetSheetName(analysis.Sheet))})");
+                string anchor = GetAnchor(analysis, SheetService.GetSheetName(analysis.Sheet));
+                string keyForLog = BuildSortKey(anchor).Replace(KeyPartSeparator, '|');
+                Logger.Info($"  '{SheetService.GetSheetName(analysis.Sheet)}' (anchor: {anchor}, key: {keyForLog})");
             }
 
             return ordered;
@@ -297,6 +299,20 @@ namespace AssemblingManager.Revit.Commands
                 return analysis.SingleBaseName;
             }
 
+            if (analysis.BaseNames != null && analysis.BaseNames.Count > 1)
+            {
+                string minName = null;
+                foreach (string baseName in analysis.BaseNames)
+                {
+                    if (minName == null || KeyComparer.Compare(baseName, minName) < 0)
+                    {
+                        minName = baseName;
+                    }
+                }
+
+                return minName;
+            }
+
             string name = sheetName ?? string.Empty;
             int cutIndex = name.Length;
 
@@ -315,15 +331,18 @@ namespace AssemblingManager.Revit.Commands
 
         private static readonly char[] SimpleSeparators = { '-', ',', ';' };
 
+        private const char KeyPartSeparator = '\u0001';
+
         private static string BuildSortKey(string anchor)
         {
             Match match = Regex.Match(anchor, @"(\d+)");
             if (match.Success)
             {
-                return match.Groups[1].Value.PadLeft(12, '0') + "|" + anchor;
+                string code = anchor.Substring(match.Index);
+                return match.Groups[1].Value.PadLeft(12, '0') + KeyPartSeparator + code + KeyPartSeparator + anchor;
             }
 
-            return "zzzzzzzzzzzz|" + anchor;
+            return "zzzzzzzzzzzz" + KeyPartSeparator + anchor;
         }
 
         private bool RenameSheet(ViewSheet sheet, string newName, HashSet<string> occupiedNames, List<string> renameLog)
