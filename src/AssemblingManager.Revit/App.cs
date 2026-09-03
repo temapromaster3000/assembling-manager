@@ -27,8 +27,8 @@ namespace AssemblingManager.Revit
 
                 PushButton settingsButton = settingsPanel.AddItem(settingsButtonData) as PushButton;
                 settingsButton.ToolTip = "Версия плагина и проверка обновлений.";
-                settingsButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Icon32.png");
-                settingsButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Icon16.png");
+                settingsButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Settings32.png");
+                settingsButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Settings16.png");
 
                 RibbonPanel assembliesPanel = application.CreateRibbonPanel(tabName, "Сборки");
                 RibbonPanel sheetsPanel = application.CreateRibbonPanel(tabName, "Листы");
@@ -42,8 +42,8 @@ namespace AssemblingManager.Revit
 
                 PushButton button = assembliesPanel.AddItem(buttonData) as PushButton;
                 button.ToolTip = "Создать планы, разрезы и 3D виды для всех сборок в модели.";
-                button.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Icon32.png");
-                button.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Icon16.png");
+                button.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.CreateViews32.png");
+                button.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.CreateViews16.png");
 
                 PushButtonData renameButtonData = new PushButtonData(
                     "RenameAssemblies",
@@ -53,8 +53,8 @@ namespace AssemblingManager.Revit
 
                 PushButton renameButton = assembliesPanel.AddItem(renameButtonData) as PushButton;
                 renameButton.ToolTip = "Найти переименованные сборки и привести имена видов, значение параметра и фильтры к текущему имени сборки.";
-                renameButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Icon32.png");
-                renameButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Icon16.png");
+                renameButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Rename32.png");
+                renameButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Rename16.png");
 
                 PushButtonData placeViewsButtonData = new PushButtonData(
                     "PlaceViewsOnSheets",
@@ -64,8 +64,8 @@ namespace AssemblingManager.Revit
 
                 PushButton placeViewsButton = sheetsPanel.AddItem(placeViewsButtonData) as PushButton;
                 placeViewsButton.ToolTip = "Скопировать лист-образец для каждого объекта из выбранной группы видов и разместить виды вокруг листа.";
-                placeViewsButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Icon32.png");
-                placeViewsButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Icon16.png");
+                placeViewsButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.PlaceSheets32.png");
+                placeViewsButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.PlaceSheets16.png");
 
                 PushButtonData sortSheetsButtonData = new PushButtonData(
                     "SortSheets",
@@ -75,8 +75,8 @@ namespace AssemblingManager.Revit
 
                 PushButton sortSheetsButton = sheetsPanel.AddItem(sortSheetsButtonData) as PushButton;
                 sortSheetsButton.ToolTip = "Удалить пустые листы, привести имена листов к именам сборок и перенумеровать листы выбранной группы.";
-                sortSheetsButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Icon32.png");
-                sortSheetsButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Icon16.png");
+                sortSheetsButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.SortSheets32.png");
+                sortSheetsButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.SortSheets16.png");
 
                 PushButtonData positionsButtonData = new PushButtonData(
                     "AssignAssemblyPositions",
@@ -86,8 +86,8 @@ namespace AssemblingManager.Revit
 
                 PushButton positionsButton = draftingPanel.AddItem(positionsButtonData) as PushButton;
                 positionsButton.ToolTip = "Проставить номера позиций по строкам выбранных спецификаций и пропустить строки по ключевым словам.";
-                positionsButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Icon32.png");
-                positionsButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Icon16.png");
+                positionsButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Positions32.png");
+                positionsButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Positions16.png");
 
                 return Result.Succeeded;
             }
