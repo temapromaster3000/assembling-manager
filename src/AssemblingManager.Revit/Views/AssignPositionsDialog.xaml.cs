@@ -136,6 +136,11 @@ namespace AssemblingManager.Revit.Views
             get { return MergeSchedulesCheckBox != null && MergeSchedulesCheckBox.IsChecked == true; }
         }
 
+        public bool OnlyPositions
+        {
+            get { return OnlyPositionsCheckBox != null && OnlyPositionsCheckBox.IsChecked == true; }
+        }
+
         public AssignPositionsDialog(List<ScheduleGroupNode> scheduleRoots, IReadOnlyList<string> initialKeywords)
         {
             InitializeComponent();

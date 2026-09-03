@@ -162,6 +162,12 @@
                           Margin="0,0,0,6"
                           ToolTip="Сквозная нумерация по нескольким спецификациям: идентичные элементы (по ADSK_Наименование) получают одну и ту же позицию. Активна при выборе более одной спецификации. Настройка не сохраняется между запусками." />
 
+                <CheckBox x:Name="OnlyPositionsCheckBox"
+                          Content="Только обновить позиции (марки не трогать)"
+                          IsChecked="False"
+                          Margin="0,0,0,6"
+                          ToolTip="Обновить позиции в выбранных спецификациях, не трогая расставленные марки: второе окно (выбор марок) не открывается. По умолчанию выключено. Настройка не сохраняется между запусками." />
+
                 <TextBlock x:Name="SummaryTextBlock"
                            VerticalAlignment="Center"
                            TextWrapping="Wrap"
@@ -170,10 +176,12 @@
 
             <StackPanel Grid.Column="1"
                         Orientation="Horizontal"
-                        HorizontalAlignment="Right">
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center">
                 <Button x:Name="ButtonCancel"
                         Content="Отмена"
                         Width="80"
+                        Height="26"
                         Margin="0,0,10,0"
                         IsCancel="True"
                         Click="ButtonCancel_Click" />
@@ -181,6 +189,7 @@
                 <Button x:Name="ButtonOK"
                         Content="Выполнить"
                         Width="120"
+                        Height="26"
                         IsDefault="True"
                         IsEnabled="False"
                         Click="ButtonOK_Click"

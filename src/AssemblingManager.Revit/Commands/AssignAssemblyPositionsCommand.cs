@@ -68,6 +68,12 @@ namespace AssemblingManager.Revit.Commands
 
             List<ViewSchedule> selectedSchedules = dialog.SelectedSchedules;
             List<string> keywords = dialog.Keywords;
+            bool onlyPositions = dialog.OnlyPositions;
+
+            if (onlyPositions)
+            {
+                Logger.Info("Only-positions mode enabled: tags step will be skipped.");
+            }
 
             PositionPresetStorage.SavePresetKeywords(document, keywords);
 
@@ -109,69 +115,76 @@ namespace AssemblingManager.Revit.Commands
                 }
             }
 
-            List<Category> elementCategories;
             Dictionary<ElementId, FamilySymbol> selectedTagSymbols = new Dictionary<ElementId, FamilySymbol>();
             int minOffsetMm = TagPresetStorage.DefaultMinOffsetMm;
             int zoneHeightMm = TagPresetStorage.DefaultZoneHeightMm;
             bool textBelowShelf = false;
 
             TagService tagService = new TagService();
-            elementCategories = CollectElementCategories(document, selectedSchedules, tagService);
-            Dictionary<ElementId, List<TagService.TagSymbolOption>> symbolOptions =
-                tagService.BuildTagSymbolOptions(document, elementCategories);
 
-            if (elementCategories.Count > 0)
+            if (!onlyPositions)
             {
-                if (symbolOptions.Count == 0)
+                List<Category> elementCategories = CollectElementCategories(document, selectedSchedules, tagService);
+                Dictionary<ElementId, List<TagService.TagSymbolOption>> symbolOptions =
+                    tagService.BuildTagSymbolOptions(document, elementCategories);
+
+                if (elementCategories.Count > 0)
                 {
-                    Logger.Warn("No tag symbol options found for selected schedules.");
-                    TaskDialog.Show(
-                        Constants.PluginName,
-                        "Для категорий элементов выбранных спецификаций не найдено подходящих марок в проекте.\n" +
-                        "Позиции будут записаны, марки — пропущены.\n\n" +
-                        "Проверьте лог плагина: там видны категории элементов и найденные марки.");
+                    if (symbolOptions.Count == 0)
+                    {
+                        Logger.Warn("No tag symbol options found for selected schedules.");
+                        TaskDialog.Show(
+                            Constants.PluginName,
+                            "Для категорий элементов выбранных спецификаций не найдено подходящих марок в проекте.\n" +
+                            "Позиции будут записаны, марки — пропущены.\n\n" +
+                            "Проверьте лог плагина: там видны категории элементов и найденные марки.");
+                    }
+
+                    List<TagCategoryItem> dialogCategories = BuildTagCategoryItems(elementCategories, symbolOptions);
+                    IReadOnlyDictionary<string, string> preset = TagPresetStorage.ReadPreset(document);
+                    int presetMinOffsetMm = TagPresetStorage.ReadMinOffsetMm(document);
+                    int presetZoneHeightMm = TagPresetStorage.ReadZoneHeightMm(document);
+                    bool presetTextBelowShelf = TagPresetStorage.ReadTextBelowShelf(document);
+
+                    AssignTagsDialog tagsDialog = new AssignTagsDialog(
+                        dialogCategories,
+                        preset,
+                        presetMinOffsetMm,
+                        presetZoneHeightMm,
+                        presetTextBelowShelf);
+                    bool? tagsDialogResult = tagsDialog.ShowDialog();
+
+                    if (tagsDialogResult != true)
+                    {
+                        Logger.Info("User cancelled the tags dialog.");
+                        return Result.Cancelled;
+                    }
+
+                    selectedTagSymbols = new Dictionary<ElementId, FamilySymbol>(
+                        tagsDialog.SelectedSymbolsByCategoryId);
+                    minOffsetMm = tagsDialog.MinOffsetMm;
+                    zoneHeightMm = tagsDialog.ZoneHeightMm;
+                    textBelowShelf = tagsDialog.TextBelowShelf;
+
+                    TagPresetStorage.SavePreset(
+                        document,
+                        BuildTagPreset(dialogCategories, tagsDialog.SelectedSymbolsByCategoryId),
+                        minOffsetMm,
+                        zoneHeightMm,
+                        textBelowShelf);
+
+                    Logger.Info($"Selected tag symbols: {selectedTagSymbols.Count} categories.");
+                    Logger.Info($"Min offset to element: {minOffsetMm} mm.");
+                    Logger.Info($"Zone height: {zoneHeightMm} mm, text below shelf: {textBelowShelf}.");
                 }
-
-                List<TagCategoryItem> dialogCategories = BuildTagCategoryItems(elementCategories, symbolOptions);
-                IReadOnlyDictionary<string, string> preset = TagPresetStorage.ReadPreset(document);
-                int presetMinOffsetMm = TagPresetStorage.ReadMinOffsetMm(document);
-                int presetZoneHeightMm = TagPresetStorage.ReadZoneHeightMm(document);
-                bool presetTextBelowShelf = TagPresetStorage.ReadTextBelowShelf(document);
-
-                AssignTagsDialog tagsDialog = new AssignTagsDialog(
-                    dialogCategories,
-                    preset,
-                    presetMinOffsetMm,
-                    presetZoneHeightMm,
-                    presetTextBelowShelf);
-                bool? tagsDialogResult = tagsDialog.ShowDialog();
-
-                if (tagsDialogResult != true)
+                else
                 {
-                    Logger.Info("User cancelled the tags dialog.");
-                    return Result.Cancelled;
+                    Logger.Warn("No element categories found for selected schedules; tags step skipped.");
                 }
-
-                selectedTagSymbols = new Dictionary<ElementId, FamilySymbol>(
-                    tagsDialog.SelectedSymbolsByCategoryId);
-                minOffsetMm = tagsDialog.MinOffsetMm;
-                zoneHeightMm = tagsDialog.ZoneHeightMm;
-                textBelowShelf = tagsDialog.TextBelowShelf;
-
-                TagPresetStorage.SavePreset(
-                    document,
-                    BuildTagPreset(dialogCategories, tagsDialog.SelectedSymbolsByCategoryId),
-                    minOffsetMm,
-                    zoneHeightMm,
-                    textBelowShelf);
-
-                Logger.Info($"Selected tag symbols: {selectedTagSymbols.Count} categories.");
-                Logger.Info($"Min offset to element: {minOffsetMm} mm.");
-                Logger.Info($"Zone height: {zoneHeightMm} mm, text below shelf: {textBelowShelf}.");
             }
             else
             {
-                Logger.Warn("No element categories found for selected schedules; tags step skipped.");
+                Logger.Info("Only-positions mode: tags dialog skipped, existing tags left untouched.");
             }
 
             Dictionary<ElementId, TagService.TagSymbolOption> tagChoices = null;
@@ -290,7 +303,11 @@ namespace AssemblingManager.Revit.Commands
                 CommonButtons = TaskDialogCommonButtons.Ok
             };
 
-            if (tagResult != null)
+            if (onlyPositions)
+            {
+                report.MainContent += "\n\nМарки: пропущены (режим «только позиции»)";
+            }
+            else if (tagResult != null)
             {
                 report.MainContent +=
                     $"\n\nМарки:\nСоздано марок: {tagResult.TagsCreatedCount}\n" +
