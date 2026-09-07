@@ -16,8 +16,6 @@ namespace AssemblingManager.Revit.Commands
     [Regeneration(RegenerationOption.Manual)]
     public class PlaceViewsOnSheetsCommand : IExternalCommand
     {
-        private const string SignalSheetSuffix = " (не размещенное)";
-
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIApplication uiApplication = commandData.Application;
@@ -102,7 +100,7 @@ namespace AssemblingManager.Revit.Commands
                 objects,
                 masterSheet,
                 groupSheetNumbers,
-                SignalSheetSuffix);
+                SheetService.SignalSheetSuffix);
 
             if (plan.Sheets.Count == 0)
             {

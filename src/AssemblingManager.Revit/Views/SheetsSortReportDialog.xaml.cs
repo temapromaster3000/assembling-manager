@@ -9,17 +9,21 @@ namespace AssemblingManager.Revit.Views
         public SheetsSortReportDialog(
             int renamedCount,
             int deletedCount,
+            int signalSheetsDeletedCount,
+            int signalViewsDeletedCount,
             int renumberedCount,
             IReadOnlyList<string> renameLog,
             IReadOnlyList<string> warnings)
         {
             InitializeComponent();
-            BuildSummary(renamedCount, deletedCount, renumberedCount, renameLog, warnings);
+            BuildSummary(renamedCount, deletedCount, signalSheetsDeletedCount, signalViewsDeletedCount, renumberedCount, renameLog, warnings);
         }
 
         private void BuildSummary(
             int renamedCount,
             int deletedCount,
+            int signalSheetsDeletedCount,
+            int signalViewsDeletedCount,
             int renumberedCount,
             IReadOnlyList<string> renameLog,
             IReadOnlyList<string> warnings)
@@ -34,6 +38,16 @@ namespace AssemblingManager.Revit.Views
             if (deletedCount > 0)
             {
                 statistics.Add($"Удалено пустых листов: {deletedCount}");
+            }
+
+            if (signalSheetsDeletedCount > 0)
+            {
+                statistics.Add($"Удалено сигнальных листов: {signalSheetsDeletedCount}");
+            }
+
+            if (signalViewsDeletedCount > 0)
+            {
+                statistics.Add($"Удалено видов и спецификаций с сигнальных листов: {signalViewsDeletedCount}");
             }
 
             if (renumberedCount > 0)

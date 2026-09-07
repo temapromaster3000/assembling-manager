@@ -66,6 +66,14 @@ namespace AssemblingManager.Revit.Services
 
         private static readonly NaturalStringComparer SheetNumberComparer = new NaturalStringComparer();
 
+        public const string SignalSheetSuffix = " (не размещенное)";
+
+        public static bool IsSignalSheetName(string sheetName)
+        {
+            return !string.IsNullOrEmpty(sheetName)
+                && sheetName.TrimEnd().EndsWith(SignalSheetSuffix.Trim(), StringComparison.OrdinalIgnoreCase);
+        }
+
         public List<ViewSheet> GetSheets(Document doc)
         {
             return new FilteredElementCollector(doc)

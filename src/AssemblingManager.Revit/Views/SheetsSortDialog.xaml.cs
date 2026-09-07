@@ -17,6 +17,11 @@ namespace AssemblingManager.Revit.Views
         public SheetGroupNode SelectedGroupNode { get; private set; }
         public int StartNumber { get; private set; }
 
+        public bool DeleteSignalSheets
+        {
+            get { return DeleteSignalSheetsCheckBox != null && DeleteSignalSheetsCheckBox.IsChecked == true; }
+        }
+
         public SheetsSortDialog(Document document, List<SheetGroupNode> sheetRoots, SheetService sheetService)
         {
             _document = document;

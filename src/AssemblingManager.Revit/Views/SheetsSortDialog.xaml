@@ -30,6 +30,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <GroupBox Grid.Row="0"
@@ -73,13 +74,20 @@
                        Foreground="Gray" />
         </Grid>
 
-        <TextBlock Grid.Row="2"
+        <CheckBox Grid.Row="2"
+                  x:Name="DeleteSignalSheetsCheckBox"
+                  Content="Удалить сигнальные листы «(не размещенное)»"
+                  IsChecked="False"
+                  Margin="0,10,0,0"
+                  ToolTip="Удалить сигнальные листы вместе с размещёнными на них видами и сборочными спецификациями. Посторонние виды, добавленные на сигнальный лист вручную, останутся в проекте. Удалённые виды можно заново создать кнопкой «Сформировать виды». Настройка не сохраняется между запусками." />
+
+        <TextBlock Grid.Row="3"
                    x:Name="SummaryTextBlock"
                    Margin="0,10,0,0"
                    TextWrapping="Wrap"
                    FontWeight="Bold" />
 
-        <Grid Grid.Row="3"
+        <Grid Grid.Row="4"
               Margin="0,15,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
