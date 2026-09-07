@@ -129,7 +129,7 @@ namespace AssemblingManager.Revit.Services
                             ViewName = viewName,
                             ViewTypeDisplayName = viewType.DisplayName,
                             ViewKind = viewType.Kind,
-                            Replace = false
+                            Action = ConflictAction.Keep
                         });
                     }
                 }
@@ -383,29 +383,13 @@ namespace AssemblingManager.Revit.Services
             viewPlan.CropBoxActive = true;
             viewPlan.CropBoxVisible = true;
 
-            double minZMm = bbox.Min.Z / MillimetersToFeet;
-            double maxZMm = bbox.Max.Z / MillimetersToFeet;
-
-            double roundedMinZMm = RoundToHundred(minZMm, false);
-            double roundedMaxZMm = RoundToHundred(maxZMm, true);
-
-            double cropOffsetMm = 500;
-            BoundingBoxXYZ cropBox = new BoundingBoxXYZ();
-            cropBox.Min = new XYZ(
-                bbox.Min.X - cropOffsetMm * MillimetersToFeet,
-                bbox.Min.Y - cropOffsetMm * MillimetersToFeet,
-                (roundedMinZMm - cropOffsetMm) * MillimetersToFeet);
-            cropBox.Max = new XYZ(
-                bbox.Max.X + cropOffsetMm * MillimetersToFeet,
-                bbox.Max.Y + cropOffsetMm * MillimetersToFeet,
-                (roundedMaxZMm + cropOffsetMm) * MillimetersToFeet);
-            viewPlan.CropBox = cropBox;
+            viewPlan.CropBox = BuildPlanCropBox(bbox);
 
             Level level = doc.GetElement(levelId) as Level;
             double levelElevationMm = (level?.Elevation ?? 0.0) / MillimetersToFeet;
 
             double viewRangeOffsetMm = 5000;
-            double cutPlaneElevationMm = (roundedMinZMm + roundedMaxZMm) / 2.0;
+            double cutPlaneElevationMm = (GetRoundedPlanMinZMm(bbox) + GetRoundedPlanMaxZMm(bbox)) / 2.0;
             PlanViewRange planViewRange = viewPlan.GetViewRange();
 
             planViewRange.SetLevelId(PlanViewPlane.TopClipPlane, levelId);
@@ -413,14 +397,39 @@ namespace AssemblingManager.Revit.Services
             planViewRange.SetLevelId(PlanViewPlane.BottomClipPlane, levelId);
             planViewRange.SetLevelId(PlanViewPlane.ViewDepthPlane, levelId);
 
-            planViewRange.SetOffset(PlanViewPlane.TopClipPlane, (roundedMaxZMm + viewRangeOffsetMm - levelElevationMm) * MillimetersToFeet);
+            planViewRange.SetOffset(PlanViewPlane.TopClipPlane, (GetRoundedPlanMaxZMm(bbox) + viewRangeOffsetMm - levelElevationMm) * MillimetersToFeet);
             planViewRange.SetOffset(PlanViewPlane.CutPlane, (cutPlaneElevationMm - levelElevationMm) * MillimetersToFeet);
-            planViewRange.SetOffset(PlanViewPlane.BottomClipPlane, (roundedMinZMm - viewRangeOffsetMm - levelElevationMm) * MillimetersToFeet);
-            planViewRange.SetOffset(PlanViewPlane.ViewDepthPlane, (roundedMinZMm - viewRangeOffsetMm - levelElevationMm) * MillimetersToFeet);
+            planViewRange.SetOffset(PlanViewPlane.BottomClipPlane, (GetRoundedPlanMinZMm(bbox) - viewRangeOffsetMm - levelElevationMm) * MillimetersToFeet);
+            planViewRange.SetOffset(PlanViewPlane.ViewDepthPlane, (GetRoundedPlanMinZMm(bbox) - viewRangeOffsetMm - levelElevationMm) * MillimetersToFeet);
 
             viewPlan.SetViewRange(planViewRange);
         }
 
+        private static double GetRoundedPlanMinZMm(BoundingBoxXYZ bbox)
+        {
+            return RoundToHundred(bbox.Min.Z / MillimetersToFeet, false);
+        }
+
+        private static double GetRoundedPlanMaxZMm(BoundingBoxXYZ bbox)
+        {
+            return RoundToHundred(bbox.Max.Z / MillimetersToFeet, true);
+        }
+
+        private static BoundingBoxXYZ BuildPlanCropBox(BoundingBoxXYZ bbox)
+        {
+            const double cropOffsetMm = 500;
+
+            BoundingBoxXYZ cropBox = new BoundingBoxXYZ();
+            cropBox.Min = new XYZ(
+                bbox.Min.X - cropOffsetMm * MillimetersToFeet,
+                bbox.Min.Y - cropOffsetMm * MillimetersToFeet,
+                (GetRoundedPlanMinZMm(bbox) - cropOffsetMm) * MillimetersToFeet);
+            cropBox.Max = new XYZ(
+                bbox.Max.X + cropOffsetMm * MillimetersToFeet,
+                bbox.Max.Y + cropOffsetMm * MillimetersToFeet,
+                (GetRoundedPlanMaxZMm(bbox) + cropOffsetMm) * MillimetersToFeet);
+            return cropBox;
+        }
 
         private static double RoundToHundred(double valueMm, bool roundUp)
         {
@@ -559,6 +568,166 @@ namespace AssemblingManager.Revit.Services
             }
 
             return viewSection;
+        }
+
+        public void UpdatePlanViewGeometry(ViewPlan viewPlan, string assemblyName, BoundingBoxXYZ bbox)
+        {
+            if (viewPlan == null || !viewPlan.IsValidObject)
+            {
+                return;
+            }
+
+            string viewName = assemblyName + PlanSuffix;
+
+            try
+            {
+                BoundingBoxXYZ currentCrop = viewPlan.CropBox;
+                BoundingBoxXYZ newCrop = BuildPlanCropBox(bbox);
+                viewPlan.CropBox = UnionBoundingBox(currentCrop, newCrop);
+
+                ExpandPlanViewRange(viewPlan, bbox);
+
+                Logger.Info($"Updated plan view '{viewName}': crop box and view range expanded.");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Could not update plan view '{viewName}': {ex}");
+            }
+        }
+
+        public void UpdateSectionViewGeometry(ViewSection viewSection, string assemblyName, string suffix, BoundingBoxXYZ bbox)
+        {
+            if (viewSection == null || !viewSection.IsValidObject)
+            {
+                return;
+            }
+
+            string viewName = assemblyName + suffix;
+
+            try
+            {
+                BoundingBoxXYZ currentCrop = viewSection.CropBox;
+                Transform transform = currentCrop.Transform;
+                Transform inverse = transform.Inverse;
+
+                XYZ bboxMinLocal = inverse.OfPoint(bbox.Min);
+                XYZ bboxMaxLocal = inverse.OfPoint(bbox.Max);
+                double offset = GetSectionBoxOffset();
+
+                BoundingBoxXYZ newCrop = new BoundingBoxXYZ();
+                newCrop.Transform = transform;
+                newCrop.Min = new XYZ(
+                    Math.Min(currentCrop.Min.X, Math.Min(bboxMinLocal.X, bboxMaxLocal.X) - offset),
+                    Math.Min(currentCrop.Min.Y, Math.Min(bboxMinLocal.Y, bboxMaxLocal.Y) - offset),
+                    Math.Min(currentCrop.Min.Z, Math.Min(bboxMinLocal.Z, bboxMaxLocal.Z) - offset));
+                newCrop.Max = new XYZ(
+                    Math.Max(currentCrop.Max.X, Math.Max(bboxMinLocal.X, bboxMaxLocal.X) + offset),
+                    Math.Max(currentCrop.Max.Y, Math.Max(bboxMinLocal.Y, bboxMaxLocal.Y) + offset),
+                    Math.Max(currentCrop.Max.Z, Math.Max(bboxMinLocal.Z, bboxMaxLocal.Z) + offset));
+
+                viewSection.CropBox = newCrop;
+                Logger.Info($"Updated section view '{viewName}': crop box expanded.");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Could not update section view '{viewName}': {ex}");
+            }
+        }
+
+        public void Update3DViewGeometry(View3D view3D, string assemblyName, BoundingBoxXYZ bbox)
+        {
+            if (view3D == null || !view3D.IsValidObject)
+            {
+                return;
+            }
+
+            string viewName = assemblyName + View3DSuffix;
+
+            try
+            {
+                UnlockView(view3D);
+
+                BoundingBoxXYZ currentSectionBox = view3D.GetSectionBox();
+                BoundingBoxXYZ sectionBox = new BoundingBoxXYZ();
+                sectionBox.Min = new XYZ(
+                    Math.Min(currentSectionBox.Min.X, bbox.Min.X),
+                    Math.Min(currentSectionBox.Min.Y, bbox.Min.Y),
+                    Math.Min(currentSectionBox.Min.Z, bbox.Min.Z));
+                sectionBox.Max = new XYZ(
+                    Math.Max(currentSectionBox.Max.X, bbox.Max.X),
+                    Math.Max(currentSectionBox.Max.Y, bbox.Max.Y),
+                    Math.Max(currentSectionBox.Max.Z, bbox.Max.Z));
+
+                view3D.SetSectionBox(sectionBox);
+
+                LockView(view3D);
+                Logger.Info($"Updated 3D view '{viewName}': section box expanded.");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Could not update 3D view '{viewName}': {ex}");
+            }
+        }
+
+        private static BoundingBoxXYZ UnionBoundingBox(BoundingBoxXYZ current, BoundingBoxXYZ additional)
+        {
+            Transform transform = current.Transform;
+            Transform inverse = transform.Inverse;
+
+            XYZ additionalMinLocal = inverse.OfPoint(additional.Min);
+            XYZ additionalMaxLocal = inverse.OfPoint(additional.Max);
+
+            BoundingBoxXYZ union = new BoundingBoxXYZ();
+            union.Transform = transform;
+            union.Min = new XYZ(
+                Math.Min(current.Min.X, Math.Min(additionalMinLocal.X, additionalMaxLocal.X)),
+                Math.Min(current.Min.Y, Math.Min(additionalMinLocal.Y, additionalMaxLocal.Y)),
+                Math.Min(current.Min.Z, Math.Min(additionalMinLocal.Z, additionalMaxLocal.Z)));
+            union.Max = new XYZ(
+                Math.Max(current.Max.X, Math.Max(additionalMinLocal.X, additionalMaxLocal.X)),
+                Math.Max(current.Max.Y, Math.Max(additionalMinLocal.Y, additionalMaxLocal.Y)),
+                Math.Max(current.Max.Z, Math.Max(additionalMinLocal.Z, additionalMaxLocal.Z)));
+            return union;
+        }
+
+        private void ExpandPlanViewRange(ViewPlan viewPlan, BoundingBoxXYZ bbox)
+        {
+            const double viewRangeOffsetMm = 5000;
+            Document doc = viewPlan.Document;
+
+            double newTopAbsMm = GetRoundedPlanMaxZMm(bbox) + viewRangeOffsetMm;
+            double newBottomAbsMm = GetRoundedPlanMinZMm(bbox) - viewRangeOffsetMm;
+            double newCutAbsMm = (GetRoundedPlanMinZMm(bbox) + GetRoundedPlanMaxZMm(bbox)) / 2.0;
+
+            PlanViewRange range = viewPlan.GetViewRange();
+
+            double topLevelElevationMm = GetPlaneLevelElevationMm(doc, range, PlanViewPlane.TopClipPlane);
+            double cutLevelElevationMm = GetPlaneLevelElevationMm(doc, range, PlanViewPlane.CutPlane);
+            double bottomLevelElevationMm = GetPlaneLevelElevationMm(doc, range, PlanViewPlane.BottomClipPlane);
+            double depthLevelElevationMm = GetPlaneLevelElevationMm(doc, range, PlanViewPlane.ViewDepthPlane);
+
+            double topAbsMm = topLevelElevationMm + range.GetOffset(PlanViewPlane.TopClipPlane) / MillimetersToFeet;
+            double cutAbsMm = cutLevelElevationMm + range.GetOffset(PlanViewPlane.CutPlane) / MillimetersToFeet;
+            double bottomAbsMm = bottomLevelElevationMm + range.GetOffset(PlanViewPlane.BottomClipPlane) / MillimetersToFeet;
+            double depthAbsMm = depthLevelElevationMm + range.GetOffset(PlanViewPlane.ViewDepthPlane) / MillimetersToFeet;
+
+            double newTopAbs = Math.Max(topAbsMm, newTopAbsMm);
+            double newBottomAbs = Math.Min(bottomAbsMm, newBottomAbsMm);
+            double newDepthAbs = Math.Min(depthAbsMm, newBottomAbsMm);
+            double newCut = (cutAbsMm > newTopAbs || cutAbsMm < newBottomAbs) ? newCutAbsMm : cutAbsMm;
+
+            range.SetOffset(PlanViewPlane.TopClipPlane, (newTopAbs - topLevelElevationMm) * MillimetersToFeet);
+            range.SetOffset(PlanViewPlane.CutPlane, (newCut - cutLevelElevationMm) * MillimetersToFeet);
+            range.SetOffset(PlanViewPlane.BottomClipPlane, (newBottomAbs - bottomLevelElevationMm) * MillimetersToFeet);
+            range.SetOffset(PlanViewPlane.ViewDepthPlane, (newDepthAbs - depthLevelElevationMm) * MillimetersToFeet);
+
+            viewPlan.SetViewRange(range);
+        }
+
+        private static double GetPlaneLevelElevationMm(Document doc, PlanViewRange range, PlanViewPlane plane)
+        {
+            Level level = doc.GetElement(range.GetLevelId(plane)) as Level;
+            return (level?.Elevation ?? 0.0) / MillimetersToFeet;
         }
 
         private void ChangeViewFamilyType(View view, ViewFamily expectedFamily, int viewFamilyTypeId)

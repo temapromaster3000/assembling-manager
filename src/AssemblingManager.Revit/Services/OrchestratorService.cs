@@ -82,6 +82,15 @@ namespace AssemblingManager.Revit.Services
             {
                 Logger.Info("Creating new grouping parameter.");
                 parameterId = _parameterService.GetOrCreateParameter(doc, app, allCategories);
+
+                try
+                {
+                    _parameterService.AddMissingCategories(doc, parameterId, allCategories);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"Could not add missing categories to parameter binding: {ex.Message}");
+                }
             }
             else
             {
@@ -145,6 +154,7 @@ namespace AssemblingManager.Revit.Services
                             options.PlanTemplateId,
                             () => _viewService.CreatePlanView(doc, assembly.Name, bbox, levelId, options.PlanViewFamilyTypeId),
                             m => _viewService.DuplicatePlanView(doc, (ViewPlan)m, assembly.Name, bbox, levelId, options.PlanViewFamilyTypeId),
+                            m => _viewService.UpdatePlanViewGeometry((ViewPlan)m, assembly.Name, bbox),
                             master,
                             resolution,
                             result,
@@ -165,6 +175,7 @@ namespace AssemblingManager.Revit.Services
                             options.SectionTemplateId,
                             () => _viewService.CreateFrontView(doc, assembly.Name, bbox, options.SectionViewFamilyTypeId),
                             m => _viewService.DuplicateSectionView(doc, (ViewSection)m, assembly.Name, ViewService.FrontViewSuffix, bbox, options.SectionViewFamilyTypeId),
+                            m => _viewService.UpdateSectionViewGeometry((ViewSection)m, assembly.Name, ViewService.FrontViewSuffix, bbox),
                             null,
                             resolution,
                             result,
@@ -183,6 +194,7 @@ namespace AssemblingManager.Revit.Services
                             options.SectionTemplateId,
                             () => _viewService.CreateBackView(doc, assembly.Name, bbox, options.SectionViewFamilyTypeId),
                             m => _viewService.DuplicateSectionView(doc, (ViewSection)m, assembly.Name, ViewService.BackViewSuffix, bbox, options.SectionViewFamilyTypeId),
+                            m => _viewService.UpdateSectionViewGeometry((ViewSection)m, assembly.Name, ViewService.BackViewSuffix, bbox),
                             null,
                             resolution,
                             result,
@@ -201,6 +213,7 @@ namespace AssemblingManager.Revit.Services
                             options.SectionTemplateId,
                             () => _viewService.CreateRightView(doc, assembly.Name, bbox, options.SectionViewFamilyTypeId),
                             m => _viewService.DuplicateSectionView(doc, (ViewSection)m, assembly.Name, ViewService.RightViewSuffix, bbox, options.SectionViewFamilyTypeId),
+                            m => _viewService.UpdateSectionViewGeometry((ViewSection)m, assembly.Name, ViewService.RightViewSuffix, bbox),
                             null,
                             resolution,
                             result,
@@ -219,6 +232,7 @@ namespace AssemblingManager.Revit.Services
                             options.SectionTemplateId,
                             () => _viewService.CreateLeftView(doc, assembly.Name, bbox, options.SectionViewFamilyTypeId),
                             m => _viewService.DuplicateSectionView(doc, (ViewSection)m, assembly.Name, ViewService.LeftViewSuffix, bbox, options.SectionViewFamilyTypeId),
+                            m => _viewService.UpdateSectionViewGeometry((ViewSection)m, assembly.Name, ViewService.LeftViewSuffix, bbox),
                             null,
                             resolution,
                             result,
@@ -238,6 +252,7 @@ namespace AssemblingManager.Revit.Services
                             options.View3DTemplateId,
                             () => _viewService.Create3DView(doc, assembly.Name, bbox, options.View3DViewFamilyTypeId),
                             m => _viewService.Duplicate3DView(doc, (View3D)m, assembly.Name, bbox, options.View3DViewFamilyTypeId),
+                            m => _viewService.Update3DViewGeometry((View3D)m, assembly.Name, bbox),
                             master,
                             resolution,
                             result,
@@ -391,7 +406,7 @@ namespace AssemblingManager.Revit.Services
             Logger.Info($"Assembly '{assemblyName}': filter '{assemblyFilter.Name}' applied to {appliedCount}/{total} views; missing on: [{string.Join(", ", missing)}].");
         }
 
-        private (View View, bool CreatedOrReplaced) CreateOrReplaceView(Document doc, string assemblyName, string suffix, int? templateId, Func<View> createFromScratch, Func<View, View> duplicateFromMaster, View master, ViewConflictResolution resolution, ViewCreationResult result, Type expectedViewType, string viewKind)
+        private (View View, bool CreatedOrReplaced) CreateOrReplaceView(Document doc, string assemblyName, string suffix, int? templateId, Func<View> createFromScratch, Func<View, View> duplicateFromMaster, Action<View> updateExisting, View master, ViewConflictResolution resolution, ViewCreationResult result, Type expectedViewType, string viewKind)
         {
             string viewName = assemblyName + suffix;
             View existingView = _viewService.GetViewByName(doc, viewName, expectedViewType);
@@ -399,22 +414,31 @@ namespace AssemblingManager.Revit.Services
             if (existingView != null)
             {
                 ViewConflictItem conflict = resolution?.Items.FirstOrDefault(i => i.ViewName == viewName && i.ViewKind == viewKind);
-                bool replace = conflict?.Replace ?? false;
+                ConflictAction action = conflict?.Action ?? ConflictAction.Keep;
 
-                if (!replace)
+                if (action == ConflictAction.Replace)
                 {
-                    Logger.Debug($"Skipping existing view '{viewName}'.");
-                    result.SkippedCount++;
+                    Logger.Debug($"Replacing existing view '{viewName}'.");
+                    _viewService.DeleteViewsByNames(doc, new[] { viewName }, expectedViewType);
+                    result.ReplacedCount++;
+                    View replacedView = CreateView(master, createFromScratch, duplicateFromMaster);
+                    _viewService.ApplyViewTemplate(replacedView, templateId);
+                    Logger.Debug($"Replaced view '{viewName}'.");
+                    return (replacedView, true);
+                }
+
+                if (action == ConflictAction.Update)
+                {
+                    Logger.Info($"Updating existing view '{viewName}'.");
+                    updateExisting?.Invoke(existingView);
+                    result.UpdatedCount++;
+                    Logger.Debug($"Updated view '{viewName}'.");
                     return (existingView, false);
                 }
 
-                Logger.Debug($"Replacing existing view '{viewName}'.");
-                _viewService.DeleteViewsByNames(doc, new[] { viewName }, expectedViewType);
-                result.ReplacedCount++;
-                View replacedView = CreateView(master, createFromScratch, duplicateFromMaster);
-                _viewService.ApplyViewTemplate(replacedView, templateId);
-                Logger.Debug($"Replaced view '{viewName}'.");
-                return (replacedView, true);
+                Logger.Debug($"Skipping existing view '{viewName}'.");
+                result.SkippedCount++;
+                return (existingView, false);
             }
 
             PlannedViewItem skip = resolution?.SkipItems?.FirstOrDefault(i => i.ViewName == viewName && i.ViewKind == viewKind);
@@ -470,9 +494,26 @@ namespace AssemblingManager.Revit.Services
             if (existingSchedule != null)
             {
                 ViewConflictItem conflict = resolution?.Items.FirstOrDefault(i => i.ViewName == scheduleName && i.ViewKind == ViewService.ViewKindSchedule);
-                bool replace = conflict?.Replace ?? false;
+                ConflictAction action = conflict?.Action ?? ConflictAction.Keep;
 
-                if (!replace)
+                if (action == ConflictAction.Update)
+                {
+                    Logger.Info($"Updating existing schedule '{scheduleName}'.");
+                    ViewSchedule existingScheduleView = existingSchedule as ViewSchedule;
+                    if (existingScheduleView != null && _scheduleService.UpdateScheduleFilter(doc, existingScheduleView, groupingParameterId, assemblyName))
+                    {
+                        Logger.Info($"Schedule filter of '{scheduleName}' verified/updated to '{assemblyName}'.");
+                    }
+                    else
+                    {
+                        Logger.Warn($"Could not update schedule filter of '{scheduleName}'.");
+                    }
+
+                    result.UpdatedCount++;
+                    return (existingScheduleView, false);
+                }
+
+                if (action != ConflictAction.Replace)
                 {
                     Logger.Debug($"Skipping existing schedule '{scheduleName}'.");
                     result.SkippedCount++;

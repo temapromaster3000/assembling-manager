@@ -32,42 +32,65 @@ namespace AssemblingManager.Revit.Views
             UpdateCounter();
         }
 
-        private void ButtonSelectAll_Click(object sender, RoutedEventArgs e)
+        private void ButtonUpdateAll_Click(object sender, RoutedEventArgs e)
         {
-            bool newState = true;
+            ToggleAllActions(ConflictAction.Update);
+        }
+
+        private void ButtonReplaceAll_Click(object sender, RoutedEventArgs e)
+        {
+            ToggleAllActions(ConflictAction.Replace);
+        }
+
+        private void ToggleAllActions(ConflictAction action)
+        {
+            bool allSet = true;
 
             foreach (ViewConflictItem item in ConflictItems)
             {
-                if (item.Replace)
+                if (item.Action != action)
                 {
-                    newState = false;
+                    allSet = false;
                     break;
                 }
             }
 
+            ConflictAction newState = allSet ? ConflictAction.Keep : action;
+
             foreach (ViewConflictItem item in ConflictItems)
             {
-                item.Replace = newState;
+                item.Action = newState;
             }
 
-            UpdateSelectAllButtonText();
+            UpdateButtonContents();
             UpdateCounter();
         }
 
-        private void UpdateSelectAllButtonText()
+        private void UpdateButtonContents()
         {
-            bool allSelected = true;
+            bool allUpdate = true;
+            bool allReplace = true;
 
             foreach (ViewConflictItem item in ConflictItems)
             {
-                if (!item.Replace)
+                if (item.Action != ConflictAction.Update)
                 {
-                    allSelected = false;
+                    allUpdate = false;
+                }
+
+                if (item.Action != ConflictAction.Replace)
+                {
+                    allReplace = false;
+                }
+
+                if (!allUpdate && !allReplace)
+                {
                     break;
                 }
             }
 
-            ButtonSelectAll.Content = allSelected ? "Снять всё" : "Выбрать всё";
+            ButtonUpdateAll.Content = allUpdate ? "Оставить как есть" : "Обновить всё";
+            ButtonReplaceAll.Content = allReplace ? "Оставить как есть" : "Заменить всё";
         }
 
         private void UpdateCounter()
@@ -76,7 +99,7 @@ namespace AssemblingManager.Revit.Views
 
             foreach (ViewConflictItem item in ConflictItems)
             {
-                if (item.Replace)
+                if (item.Action != ConflictAction.Keep)
                 {
                     selected++;
                 }
@@ -85,17 +108,18 @@ namespace AssemblingManager.Revit.Views
             TextBlockSelectedCount.Text = $"Выбрано: {selected} из {ConflictItems.Count}";
         }
 
-        private void CheckBox_Click(object sender, RoutedEventArgs e)
+        private void ActionComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (sender is CheckBox checkBox && checkBox.DataContext is ViewConflictItem clickedItem)
+            if (sender is ComboBox comboBox && comboBox.DataContext is ViewConflictItem changedItem
+                && comboBox.SelectedIndex >= 0)
             {
-                bool newState = checkBox.IsChecked == true;
+                ConflictAction action = (ConflictAction)comboBox.SelectedIndex;
 
-                if (ConflictListView.SelectedItems.Contains(clickedItem) && ConflictListView.SelectedItems.Count > 1)
+                if (ConflictListView.SelectedItems.Contains(changedItem) && ConflictListView.SelectedItems.Count > 1)
                 {
                     foreach (ViewConflictItem item in ConflictListView.SelectedItems)
                     {
-                        item.Replace = newState;
+                        item.Action = action;
                     }
                 }
             }

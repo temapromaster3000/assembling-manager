@@ -108,7 +108,7 @@ namespace AssemblingManager.Revit.Services
                         ViewName = scheduleName,
                         ViewTypeDisplayName = "Спецификация",
                         ViewKind = ViewService.ViewKindSchedule,
-                        Replace = false
+                        Action = ConflictAction.Keep
                     });
                 }
             }

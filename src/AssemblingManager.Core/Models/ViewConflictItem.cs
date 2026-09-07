@@ -9,20 +9,20 @@ namespace AssemblingManager.Core.Models
         public string ViewTypeDisplayName { get; set; }
         public string ViewKind { get; set; }
 
-        private bool _replace;
+        private ConflictAction _action;
 
-        public bool Replace
+        public ConflictAction Action
         {
-            get { return _replace; }
+            get { return _action; }
             set
             {
-                if (_replace == value)
+                if (_action == value)
                 {
                     return;
                 }
 
-                _replace = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Replace)));
+                _action = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Action)));
             }
         }
 

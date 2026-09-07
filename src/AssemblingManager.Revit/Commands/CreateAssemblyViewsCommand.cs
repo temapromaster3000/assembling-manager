@@ -94,16 +94,6 @@ namespace AssemblingManager.Revit.Commands
 
                 if (conflicts.Count > 0)
                 {
-                    List<string> activeViewConflicts = GetActiveViewConflicts(uiDocument, conflicts);
-                    if (activeViewConflicts.Count > 0)
-                    {
-                        string messageText = "Нельзя заменить виды, которые сейчас открыты:\n\n" +
-                            string.Join("\n", activeViewConflicts) +
-                            "\n\nЗакройте эти виды и попробуйте снова.";
-                        MessageBox.Show(messageText, "Assembling Manager", MessageBoxButton.OK, MessageBoxImage.Warning);
-                        continue;
-                    }
-
                     ConflictDialog conflictDialog = new ConflictDialog(conflicts);
                     bool? conflictResult = conflictDialog.ShowDialog();
 
@@ -113,7 +103,7 @@ namespace AssemblingManager.Revit.Commands
                         continue;
                     }
 
-                    activeViewConflicts = GetActiveViewConflicts(uiDocument, conflictDialog.ConflictItems.Where(i => i.Replace).ToList());
+                    List<string> activeViewConflicts = GetActiveViewConflicts(uiDocument, conflictDialog.ConflictItems.Where(i => i.Action == ConflictAction.Replace).ToList());
                     if (activeViewConflicts.Count > 0)
                     {
                         string messageText = "Нельзя заменить виды, которые сейчас открыты:\n\n" +

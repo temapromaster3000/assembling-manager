@@ -25,6 +25,11 @@ namespace AssemblingManager.Revit.Views
                 AddStatistic("Заменено видов:", result.ReplacedCount.ToString());
             }
 
+            if (result.UpdatedCount > 0)
+            {
+                AddStatistic("Обновлено видов:", result.UpdatedCount.ToString());
+            }
+
             if (result.SkippedCount > 0)
             {
                 AddStatistic("Пропущено видов:", result.SkippedCount.ToString());
