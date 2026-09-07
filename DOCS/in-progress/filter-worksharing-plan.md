@@ -43,7 +43,11 @@
 - `src/AssemblingManager.Revit/Services/OrchestratorService.cs` — цикл фильтров на новую логику + верификация + итоги по сборкам.
 - `src/AssemblingManager.Revit/Services/ViewService.cs` — лог `DeleteViewsByNames`, расширенный лог `ApplyViewTemplate`.
 - `src/AssemblingManager.Revit/Commands/RenameAssembliesCommand.cs` — получит детали логирования автоматически (использует `FilterService`).
-- `docs/future/filter-worksharing-plan.md` (этот файл).
+- `docs/in-progress/filter-worksharing-plan.md` (этот файл).
+
+## Принятые решения при реализации
+
+- `LockView` вызывается только для видов, созданных/заменённых в текущем прогоне. Существующие (в т.ч. чужие) 3D-виды не запираются — запирание является изменением вида и может упереться в занятость.
 
 ## Контрольный список ручной проверки (при реализации)
 
@@ -57,4 +61,4 @@
 
 ## Статус
 
-Отложено (future). Взять в работу после завершения и пуша текущих исправлений (заголовки объединённых спецификаций).
+В работе (in-progress).
