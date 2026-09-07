@@ -43,7 +43,7 @@
 - `src/AssemblingManager.Revit/Services/OrchestratorService.cs` — цикл фильтров на новую логику + верификация + итоги по сборкам.
 - `src/AssemblingManager.Revit/Services/ViewService.cs` — лог `DeleteViewsByNames`, расширенный лог `ApplyViewTemplate`.
 - `src/AssemblingManager.Revit/Commands/RenameAssembliesCommand.cs` — получит детали логирования автоматически (использует `FilterService`).
-- `docs/in-progress/filter-worksharing-plan.md` (этот файл).
+- `docs/realized/filter-worksharing-plan.md` (этот файл).
 
 ## Принятые решения при реализации
 
@@ -61,4 +61,4 @@
 
 ## Статус
 
-В работе (in-progress).
+Реализовано (realized).
