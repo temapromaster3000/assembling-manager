@@ -206,6 +206,86 @@ namespace AssemblingManager.Revit.Services
             return schedule;
         }
 
+        public void ApplyMergedScheduleHeaders(List<ViewSchedule> schedules, List<string> warnings)
+        {
+            if (schedules == null || schedules.Count == 0)
+            {
+                return;
+            }
+
+            for (int i = 0; i < schedules.Count; i++)
+            {
+                ViewSchedule schedule = schedules[i];
+                if (schedule == null || !schedule.IsValidObject)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    ScheduleDefinition definition = schedule.Definition;
+                    definition.ShowHeaders = true;
+                    definition.ShowTitle = i == 0;
+                }
+                catch (Exception ex)
+                {
+                    warnings?.Add($"Не удалось изменить отображение заголовков спецификации «{schedule.Name}»: {ex.Message}");
+                    Logger.Warn($"Could not change headers visibility for schedule '{schedule.Name}': {ex.Message}");
+                    continue;
+                }
+
+                ApplyMergedColumnHeadings(schedule, warnings);
+            }
+        }
+
+        private void ApplyMergedColumnHeadings(ViewSchedule schedule, List<string> warnings)
+        {
+            string scheduleName = schedule.Name ?? string.Empty;
+            string assemblyName = scheduleName.EndsWith(ScheduleSuffix, StringComparison.Ordinal)
+                ? scheduleName.Substring(0, scheduleName.Length - ScheduleSuffix.Length)
+                : scheduleName;
+
+            ScheduleDefinition definition = schedule.Definition;
+            List<ScheduleField> visibleFields = new List<ScheduleField>();
+
+            foreach (ScheduleFieldId fieldId in definition.GetFieldOrder())
+            {
+                ScheduleField field = definition.GetField(fieldId);
+                if (field != null && !field.IsHidden)
+                {
+                    visibleFields.Add(field);
+                }
+            }
+
+            const int targetColumnIndex = 2;
+            if (visibleFields.Count <= targetColumnIndex)
+            {
+                warnings?.Add($"В спецификации «{scheduleName}» видимых столбцов меньше трёх ({visibleFields.Count}) — имя сборки в заголовок не записано.");
+                return;
+            }
+
+            for (int i = 0; i < visibleFields.Count; i++)
+            {
+                ScheduleField field = visibleFields[i];
+                bool isTarget = i == targetColumnIndex;
+                try
+                {
+                    field.ColumnHeading = isTarget ? assemblyName : string.Empty;
+                }
+                catch (Exception ex)
+                {
+                    warnings?.Add($"Не удалось изменить заголовок столбца «{field.GetName()}» спецификации «{scheduleName}»: {ex.Message}");
+                    Logger.Warn($"Could not set column heading for field '{field.GetName()}' of schedule '{scheduleName}': {ex.Message}");
+                    continue;
+                }
+
+                if (isTarget)
+                {
+                    Logger.Debug($"Column heading #{i + 1} ('{field.GetName()}') set to '{assemblyName}' for schedule '{scheduleName}'.");
+                }
+            }
+        }
+
         public bool UpdateScheduleFilter(Document doc, ViewSchedule schedule, ElementId groupingParameterId, string assemblyName)
         {
             if (schedule == null || !schedule.IsValidObject || groupingParameterId == null)

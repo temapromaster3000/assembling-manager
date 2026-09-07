@@ -201,6 +201,7 @@ namespace AssemblingManager.Revit.Commands
             int processedCount = 0;
             int skippedCount = 0;
             TagPlacementResult tagResult = null;
+            List<string> headerWarnings = new List<string>();
 
             using (TransactionGroup transactionGroup = new TransactionGroup(document, "Assembling Manager"))
             {
@@ -249,6 +250,9 @@ namespace AssemblingManager.Revit.Commands
 
                         if (mergedState != null)
                         {
+                            ScheduleService scheduleService = new ScheduleService();
+                            scheduleService.ApplyMergedScheduleHeaders(selectedSchedules, headerWarnings);
+
                             Logger.Info(
                                 $"Merged numbering finished: last position {mergedState.LastPosition}, " +
                                 $"reused {mergedState.ReusedCount}, new {mergedState.NewCount}.");
@@ -302,6 +306,11 @@ namespace AssemblingManager.Revit.Commands
                               (mergeSchedules ? "\nОбъединение спецификаций: включено" : string.Empty),
                 CommonButtons = TaskDialogCommonButtons.Ok
             };
+
+            if (headerWarnings.Count > 0)
+            {
+                report.MainContent += "\n\nЗаголовки спецификаций:\n" + string.Join("\n", headerWarnings.Select(w => $"— {w}"));
+            }
 
             if (onlyPositions)
             {
