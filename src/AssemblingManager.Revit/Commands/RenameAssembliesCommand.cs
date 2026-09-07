@@ -336,11 +336,11 @@ namespace AssemblingManager.Revit.Commands
                 List<View> allAssemblyViews = viewService.GetExistingAssemblyViews(doc, rename.Assembly.Name);
                 foreach (View view in allAssemblyViews)
                 {
-                    filterService.ApplyFilterToView(view, assemblyFilter.Id);
+                    filterService.ApplyFilterToView(view, assemblyFilter.Id, assemblyFilter.Name);
 
                     if (view is ViewPlan)
                     {
-                        filterService.ApplyFilterToView(view, sectionMarkFilter.Id);
+                        filterService.ApplyFilterToView(view, sectionMarkFilter.Id, sectionMarkFilter.Name);
                     }
 
                     if (view is View3D)

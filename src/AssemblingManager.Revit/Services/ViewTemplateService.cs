@@ -95,6 +95,32 @@ namespace AssemblingManager.Revit.Services
             return false;
         }
 
+        public string GetFilterLockingTemplateName(View view)
+        {
+            if (view == null || !view.IsValidObject)
+            {
+                return null;
+            }
+
+            ElementId templateId = view.ViewTemplateId;
+            if (templateId == null || templateId == ElementId.InvalidElementId)
+            {
+                return null;
+            }
+
+            View template = view.Document.GetElement(templateId) as View;
+            if (template == null || !template.IsTemplate)
+            {
+                return null;
+            }
+
+#pragma warning disable CS0618
+            int templateIdValue = template.Id.IntegerValue;
+#pragma warning restore CS0618
+
+            return IsTemplateLockingFilters(view.Document, templateIdValue) ? template.Name : null;
+        }
+
         private bool IsVisGraphicsFiltersParameter(ElementId parameterId)
         {
 #pragma warning disable CS0618

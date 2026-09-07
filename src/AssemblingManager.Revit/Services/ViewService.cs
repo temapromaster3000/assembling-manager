@@ -48,6 +48,7 @@ namespace AssemblingManager.Revit.Services
                 foreach (View view in viewsToDelete)
                 {
                     UnlockView(view);
+                    Logger.Info($"Deleting view '{view.Name}'.");
                 }
 
                 doc.Delete(viewsToDelete.Select(v => v.Id).ToList());
@@ -420,6 +421,7 @@ namespace AssemblingManager.Revit.Services
             viewPlan.SetViewRange(planViewRange);
         }
 
+
         private static double RoundToHundred(double valueMm, bool roundUp)
         {
             const double factor = 100.0;
@@ -623,7 +625,11 @@ namespace AssemblingManager.Revit.Services
             if (view.IsValidViewTemplate(id))
             {
                 view.ViewTemplateId = id;
-                Logger.Debug($"Applied view template Id {templateId.Value} to view '{view.Name}'.");
+                ViewTemplateService viewTemplateService = new ViewTemplateService();
+                View template = view.Document.GetElement(id) as View;
+                bool controlsFilters = viewTemplateService.IsTemplateLockingFilters(view.Document, templateId.Value);
+                string templateName = template != null ? template.Name : $"Id {templateId.Value}";
+                Logger.Debug($"Applied view template '{templateName}' (Id {templateId.Value}) to view '{view.Name}' (controls filters: {controlsFilters}).");
             }
             else
             {

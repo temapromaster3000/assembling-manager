@@ -110,6 +110,7 @@ namespace AssemblingManager.Revit.Services
 
             ViewCreationResult result = new ViewCreationResult();
             Dictionary<string, View> viewMasters = new Dictionary<string, View>();
+            Dictionary<string, List<View>> newViewsByAssembly = new Dictionary<string, List<View>>();
             bool createAnyView = options.CreatePlan ||
                                  options.CreateFrontView ||
                                  options.CreateBackView ||
@@ -149,6 +150,7 @@ namespace AssemblingManager.Revit.Services
                             result,
                             typeof(ViewPlan),
                             ViewService.ViewKindPlan);
+                        TrackNewView(newViewsByAssembly, assembly.Name, view, createdOrReplaced);
                         if (createdOrReplaced && !viewMasters.ContainsKey(ViewService.ViewKindPlan))
                             viewMasters[ViewService.ViewKindPlan] = view;
                     }
@@ -168,6 +170,7 @@ namespace AssemblingManager.Revit.Services
                             result,
                             typeof(ViewSection),
                             ViewService.ViewKindFrontView);
+                        TrackNewView(newViewsByAssembly, assembly.Name, view, createdOrReplaced);
                     }
 
                     if (options.CreateBackView)
@@ -185,6 +188,7 @@ namespace AssemblingManager.Revit.Services
                             result,
                             typeof(ViewSection),
                             ViewService.ViewKindBackView);
+                        TrackNewView(newViewsByAssembly, assembly.Name, view, createdOrReplaced);
                     }
 
                     if (options.CreateRightView)
@@ -202,6 +206,7 @@ namespace AssemblingManager.Revit.Services
                             result,
                             typeof(ViewSection),
                             ViewService.ViewKindRightView);
+                        TrackNewView(newViewsByAssembly, assembly.Name, view, createdOrReplaced);
                     }
 
                     if (options.CreateLeftView)
@@ -219,6 +224,7 @@ namespace AssemblingManager.Revit.Services
                             result,
                             typeof(ViewSection),
                             ViewService.ViewKindLeftView);
+                        TrackNewView(newViewsByAssembly, assembly.Name, view, createdOrReplaced);
                     }
 
                     if (options.Create3D)
@@ -237,6 +243,7 @@ namespace AssemblingManager.Revit.Services
                             result,
                             typeof(View3D),
                             ViewService.ViewKind3D);
+                        TrackNewView(newViewsByAssembly, assembly.Name, view, createdOrReplaced);
                         if (createdOrReplaced && !viewMasters.ContainsKey(ViewService.ViewKind3D))
                             viewMasters[ViewService.ViewKind3D] = view;
                     }
@@ -257,31 +264,131 @@ namespace AssemblingManager.Revit.Services
 
             Logger.Info("Creating and applying assembly filters.");
 
+            ViewTemplateService viewTemplateService = new ViewTemplateService();
+
             foreach (AssemblyInstance assembly in assemblies)
             {
-                ParameterFilterElement assemblyFilter = _filterService.CreateAssemblyFilter(doc, parameterId, assembly.Name, allCategories);
-                ParameterFilterElement sectionMarkFilter = _filterService.CreateSectionMarkFilter(doc, assembly.Name);
+                (ParameterFilterElement assemblyFilter, bool assemblyFilterRecreated) = _filterService.EnsureAssemblyFilter(doc, parameterId, assembly.Name, allCategories);
+                (ParameterFilterElement sectionMarkFilter, bool sectionMarkFilterRecreated) = _filterService.EnsureSectionMarkFilter(doc, assembly.Name);
 
                 List<View> allAssemblyViews = _viewService.GetExistingAssemblyViews(doc, assembly.Name);
-                foreach (View view in allAssemblyViews)
+                List<View> newViews = GetAssemblyViews(newViewsByAssembly, assembly.Name);
+
+                List<View> assemblyFilterTargets = assemblyFilterRecreated ? allAssemblyViews : newViews;
+                List<View> sectionMarkFilterTargets = sectionMarkFilterRecreated
+                    ? allAssemblyViews.Where(v => v is ViewPlan).ToList()
+                    : newViews.Where(v => v is ViewPlan).ToList();
+
+                foreach (View view in assemblyFilterTargets)
                 {
-                    _filterService.ApplyFilterToView(view, assemblyFilter.Id);
-
-                    if (view is ViewPlan)
+                    if (view != null && view.IsValidObject)
                     {
-                        _filterService.ApplyFilterToView(view, sectionMarkFilter.Id);
-                    }
-
-                    if (view is View3D)
-                    {
-                        _viewService.LockView(view);
+                        _filterService.ApplyFilterToView(view, assemblyFilter.Id, assemblyFilter.Name);
                     }
                 }
+
+                foreach (View view in sectionMarkFilterTargets)
+                {
+                    if (view != null && view.IsValidObject)
+                    {
+                        _filterService.ApplyFilterToView(view, sectionMarkFilter.Id, sectionMarkFilter.Name);
+                    }
+                }
+
+                foreach (View view in newViews.Where(v => v is View3D))
+                {
+                    _viewService.LockView(view);
+                }
+
+                VerifyAssemblyFilters(assembly.Name, allAssemblyViews, assemblyFilter, sectionMarkFilter, viewTemplateService);
             }
 
             Logger.Info($"OrchestratorService.GenerateViews finished: Created {result.CreatedCount}, Replaced {result.ReplacedCount}, Skipped {result.SkippedCount}.");
 
             return result;
+        }
+
+        private static List<View> GetAssemblyViews(Dictionary<string, List<View>> newViewsByAssembly, string assemblyName)
+        {
+            if (newViewsByAssembly.TryGetValue(assemblyName, out List<View> views))
+            {
+                return views;
+            }
+
+            return new List<View>();
+        }
+
+        private void TrackNewView(Dictionary<string, List<View>> newViewsByAssembly, string assemblyName, View view, bool createdOrReplaced)
+        {
+            if (!createdOrReplaced || view == null)
+            {
+                return;
+            }
+
+            if (!newViewsByAssembly.TryGetValue(assemblyName, out List<View> views))
+            {
+                views = new List<View>();
+                newViewsByAssembly[assemblyName] = views;
+            }
+
+            views.Add(view);
+        }
+
+        private void VerifyAssemblyFilters(
+            string assemblyName,
+            List<View> allAssemblyViews,
+            ParameterFilterElement assemblyFilter,
+            ParameterFilterElement sectionMarkFilter,
+            ViewTemplateService viewTemplateService)
+        {
+            int total = 0;
+            int appliedCount = 0;
+            List<string> missing = new List<string>();
+
+            foreach (View view in allAssemblyViews)
+            {
+                if (view == null || !view.IsValidObject)
+                {
+                    continue;
+                }
+
+                total++;
+
+                bool assemblyApplied = _filterService.IsFilterAppliedToView(view, assemblyFilter.Id);
+                bool sectionMarkApplied = !(view is ViewPlan) || (sectionMarkFilter != null && _filterService.IsFilterAppliedToView(view, sectionMarkFilter.Id));
+
+                if (assemblyApplied && sectionMarkApplied)
+                {
+                    appliedCount++;
+                }
+                else
+                {
+                    missing.Add(view.Name);
+
+                    if (!assemblyApplied)
+                    {
+                        Logger.Warn($"Verification: view '{view.Name}' does not have filter '{assemblyFilter.Name}'.");
+                    }
+
+                    if (!sectionMarkApplied)
+                    {
+                        Logger.Warn($"Verification: view '{view.Name}' does not have filter '{sectionMarkFilter.Name}'.");
+                    }
+                }
+
+                if (assemblyApplied && !_filterService.IsFilterVisibilityAppliedToView(view, assemblyFilter.Id))
+                {
+                    Logger.Warn($"Verification: filter '{assemblyFilter.Name}' is applied to view '{view.Name}' but is still visible (hiding was not applied).");
+                }
+
+                string lockingTemplate = viewTemplateService.GetFilterLockingTemplateName(view);
+                if (lockingTemplate != null)
+                {
+                    Logger.Warn($"Verification: view '{view.Name}' has view template '{lockingTemplate}' that controls filters; filter settings may be blocked by this template.");
+                }
+            }
+
+            Logger.Info($"Assembly '{assemblyName}': filter '{assemblyFilter.Name}' applied to {appliedCount}/{total} views; missing on: [{string.Join(", ", missing)}].");
         }
 
         private (View View, bool CreatedOrReplaced) CreateOrReplaceView(Document doc, string assemblyName, string suffix, int? templateId, Func<View> createFromScratch, Func<View, View> duplicateFromMaster, View master, ViewConflictResolution resolution, ViewCreationResult result, Type expectedViewType, string viewKind)
