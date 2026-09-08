@@ -24,6 +24,27 @@ namespace AssemblingManager.Revit.Services
             return result;
         }
 
+        public HashSet<ElementId> CollectElementsWithNested(Document doc, ICollection<ElementId> selectedIds)
+        {
+            HashSet<ElementId> result = new HashSet<ElementId>();
+
+            foreach (ElementId elementId in selectedIds)
+            {
+                if (!result.Add(elementId))
+                {
+                    continue;
+                }
+
+                Element element = doc.GetElement(elementId);
+                if (element is FamilyInstance familyInstance)
+                {
+                    CollectNestedSharedFamilies(doc, familyInstance, result);
+                }
+            }
+
+            return result;
+        }
+
         private void CollectNestedSharedFamilies(Document doc, FamilyInstance parent, HashSet<ElementId> result)
         {
             foreach (ElementId subId in parent.GetSubComponentIds())

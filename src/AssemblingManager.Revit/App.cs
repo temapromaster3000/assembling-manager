@@ -56,6 +56,17 @@ namespace AssemblingManager.Revit
                 renameButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Rename32.png");
                 renameButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Rename16.png");
 
+                PushButtonData assignExistingButtonData = new PushButtonData(
+                    "AssignExistingElements",
+                    "Добавить\nсуществующее",
+                    assemblyPath,
+                    "AssemblingManager.Revit.Commands.AssignExistingElementsCommand");
+
+                PushButton assignExistingButton = assembliesPanel.AddItem(assignExistingButtonData) as PushButton;
+                assignExistingButton.ToolTip = "Записать в параметр выбранных существующих элементов (и их вложенных семейств) имя выбранной сборки, чтобы они попадали под фильтр видов этой сборки.";
+                assignExistingButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.AddExisting32.png");
+                assignExistingButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.AddExisting16.png");
+
                 PushButtonData placeViewsButtonData = new PushButtonData(
                     "PlaceViewsOnSheets",
                     "Разместить\nна листах",

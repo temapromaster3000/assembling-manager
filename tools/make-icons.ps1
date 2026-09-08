@@ -176,6 +176,28 @@ function Draw-Positions([System.Drawing.Graphics]$g, [int]$size) {
     }
 }
 
+# --- Добавить существующее: куб + плюс ---
+function Draw-AddExisting([System.Drawing.Graphics]$g, [int]$size) {
+    Draw-Cube $g
+
+    $cx = 23.0
+    $cy = 23.0
+    $r = 8.0
+    if ($size -le 16) {
+        $r = 7.0
+        $cx = 22.5
+        $cy = 22.5
+    }
+
+    $blue = New-Brush $script:Blue
+    $whitePen = New-Pen $script:White 2.5
+
+    $g.FillEllipse($blue, $cx - $r, $cy - $r, $r * 2, $r * 2)
+    $arm = [single]($r * 0.55)
+    $g.DrawLine($whitePen, [single]($cx - $arm), [single]$cy, [single]($cx + $arm), [single]$cy)
+    $g.DrawLine($whitePen, [single]$cx, [single]($cy - $arm), [single]$cx, [single]($cy + $arm))
+}
+
 # --- Сборка иконки ---
 function New-Icon([string]$kind, [int]$size) {
     $bmp = [System.Drawing.Bitmap]::new($size, $size)
@@ -196,6 +218,7 @@ function New-Icon([string]$kind, [int]$size) {
             'PlaceSheets' { Draw-PlaceSheets $g }
             'SortSheets'  { Draw-SortSheets $g $size }
             'Positions'   { Draw-Positions $g $size }
+            'AddExisting' { Draw-AddExisting $g $size }
             default       { throw "Unknown icon kind: $kind" }
         }
     }
@@ -206,7 +229,7 @@ function New-Icon([string]$kind, [int]$size) {
 }
 
 # --- Генерация ---
-$kinds = @('Settings', 'CreateViews', 'Rename', 'PlaceSheets', 'SortSheets', 'Positions')
+$kinds = @('Settings', 'CreateViews', 'Rename', 'PlaceSheets', 'SortSheets', 'Positions', 'AddExisting')
 $sizes = @(16, 32)
 
 if (-not (Test-Path -LiteralPath $OutputDir)) {
