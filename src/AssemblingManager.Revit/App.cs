@@ -89,6 +89,17 @@ namespace AssemblingManager.Revit
                 positionsButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Positions32.png");
                 positionsButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Positions16.png");
 
+                PushButtonData neighborAxesButtonData = new PushButtonData(
+                    "PlaceNeighborAxes",
+                    "Ближайшие\nоси",
+                    assemblyPath,
+                    "AssemblingManager.Revit.Commands.PlaceNeighborAxesCommand");
+
+                PushButton neighborAxesButton = draftingPanel.AddItem(neighborAxesButtonData) as PushButton;
+                neighborAxesButton.ToolTip = "На планах и разрезах выбранных сборок, где видна только одна ось, поставить маркер «Ближайшие оси - марка» с именами соседних осей.";
+                neighborAxesButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.NeighborAxes32.png");
+                neighborAxesButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.NeighborAxes16.png");
+
                 return Result.Succeeded;
             }
             catch (Exception ex)
