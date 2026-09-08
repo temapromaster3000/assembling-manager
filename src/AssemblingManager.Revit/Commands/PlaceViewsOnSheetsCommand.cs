@@ -95,12 +95,12 @@ namespace AssemblingManager.Revit.Commands
                     .Where(n => !string.IsNullOrEmpty(n)),
                 StringComparer.OrdinalIgnoreCase);
 
-            SheetService.SheetPlacementPlan plan = sheetService.BuildPlacementPlan(
+            SheetService.SheetPlacementPlan plan = Logger.Time("BuildPlacementPlan", () => sheetService.BuildPlacementPlan(
                 document,
                 objects,
                 masterSheet,
                 groupSheetNumbers,
-                SheetService.SignalSheetSuffix);
+                SheetService.SignalSheetSuffix));
 
             if (plan.Sheets.Count == 0)
             {
@@ -159,7 +159,7 @@ namespace AssemblingManager.Revit.Commands
                             }
 
                             ObjectViewGroup unplacedGroup = BuildUnplacedGroup(document, item.ObjectName, item.UnplacedViewIds);
-                            sheetService.PlaceObjectViewsOnSheet(document, newSheet, unplacedGroup, placedViewIds, null, result.Warnings);
+                            Logger.Time($"Place views on sheet '{item.SheetName}'", () => sheetService.PlaceObjectViewsOnSheet(document, newSheet, unplacedGroup, placedViewIds, null, result.Warnings));
                         }
 
                         transaction.Commit();

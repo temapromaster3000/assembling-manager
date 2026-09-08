@@ -12,11 +12,12 @@ namespace AssemblingManager.Revit.Views
             int signalSheetsDeletedCount,
             int signalViewsDeletedCount,
             int renumberedCount,
+            int unchangedCount,
             IReadOnlyList<string> renameLog,
             IReadOnlyList<string> warnings)
         {
             InitializeComponent();
-            BuildSummary(renamedCount, deletedCount, signalSheetsDeletedCount, signalViewsDeletedCount, renumberedCount, renameLog, warnings);
+            BuildSummary(renamedCount, deletedCount, signalSheetsDeletedCount, signalViewsDeletedCount, renumberedCount, unchangedCount, renameLog, warnings);
         }
 
         private void BuildSummary(
@@ -25,6 +26,7 @@ namespace AssemblingManager.Revit.Views
             int signalSheetsDeletedCount,
             int signalViewsDeletedCount,
             int renumberedCount,
+            int unchangedCount,
             IReadOnlyList<string> renameLog,
             IReadOnlyList<string> warnings)
         {
@@ -53,6 +55,11 @@ namespace AssemblingManager.Revit.Views
             if (renumberedCount > 0)
             {
                 statistics.Add($"Перенумеровано листов: {renumberedCount}");
+            }
+
+            if (unchangedCount > 0)
+            {
+                statistics.Add($"Листов с актуальными номерами (без изменений): {unchangedCount}");
             }
 
             if (statistics.Count == 0)

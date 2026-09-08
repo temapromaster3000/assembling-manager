@@ -40,7 +40,7 @@ namespace AssemblingManager.Revit.Commands
 
             try
             {
-                sheetRoots = browserGroupService.BuildSheetTree(document);
+                sheetRoots = Logger.Time("BuildSheetTree", () => browserGroupService.BuildSheetTree(document));
             }
             catch (Exception ex)
             {
@@ -75,7 +75,8 @@ namespace AssemblingManager.Revit.Commands
                 Logger.Info("Delete-signal-sheets mode enabled.");
             }
 
-            List<SheetAnalysis> analyses = BuildAnalysis(document, selectedGroup, _sheetService.GetAssemblyNames(document));
+            SheetContentIndex contentIndex = Logger.Time("BuildSheetContentIndex", () => SheetContentIndex.Build(document));
+            List<SheetAnalysis> analyses = Logger.Time("BuildAnalysis", () => BuildAnalysis(document, selectedGroup, _sheetService.GetAssemblyNames(document), contentIndex));
             Logger.Info($"Group '{selectedGroup.Name}': {analyses.Count} sheets, {analyses.Count(a => a.IsEmpty)} empty, {analyses.Count(a => a.IsSignal)} signal.");
 
             List<SheetAnalysis> signalSheets = deleteSignalSheets
@@ -85,7 +86,7 @@ namespace AssemblingManager.Revit.Commands
             List<SheetAnalysis> remaining = analyses
                 .Where(a => !a.IsEmpty && !(deleteSignalSheets && a.IsSignal))
                 .ToList();
-            List<SheetAnalysis> ordered = OrderSheets(remaining);
+            List<SheetAnalysis> ordered = Logger.Time("OrderSheets", () => OrderSheets(remaining));
 
             if (analyses.All(a => a.IsEmpty))
             {
@@ -97,17 +98,21 @@ namespace AssemblingManager.Revit.Commands
             List<string> renumberLog = new List<string>();
             List<string> renameLog = new List<string>();
             List<string> warnings = new List<string>();
+            List<string> numberingBreaks = new List<string>();
+            List<string> nameBreaks = new List<string>();
 
             List<ElementId> emptySheetIds = analyses.Where(a => a.IsEmpty).Select(a => a.Sheet.Id).ToList();
+
+            HashSet<string> validAssemblyNames = _sheetService.GetAssemblyNames(document);
 
             List<List<ElementId>> signalDeletionGroups = new List<List<ElementId>>();
             int preservedForeignCount = 0;
             if (signalSheets.Count > 0)
             {
-                HashSet<string> assemblyNames = _sheetService.GetAssemblyNames(document);
+                HashSet<string> assemblyNames = validAssemblyNames;
                 foreach (SheetAnalysis signal in signalSheets)
                 {
-                    List<ElementId> group = CollectSignalSheetContent(document, signal.Sheet, assemblyNames, out int foreignCount);
+                    List<ElementId> group = CollectSignalSheetContent(document, signal.Sheet, contentIndex, assemblyNames, out int foreignCount);
                     preservedForeignCount += foreignCount;
                     signalDeletionGroups.Add(group);
                 }
@@ -119,18 +124,104 @@ namespace AssemblingManager.Revit.Commands
                 .Concat(signalDeletionGroups.SelectMany(g => g))
                 .Distinct()
                 .ToList();
-            List<ElementId> modifySheetIds = ordered.Select(a => a.Sheet.Id).ToList();
 
-            WorksharingEditability editability = _worksharingService.CheckEditable(
+            HashSet<ElementId> orderedSheetIds = new HashSet<ElementId>(ordered.Select(a => a.Sheet.Id));
+            HashSet<ElementId> renamePendingIds = CollectRenamePendingIds(ordered, validAssemblyNames);
+            Dictionary<string, ElementId> outsideNumbers = CollectOutsideNumbers(document, orderedSheetIds);
+            HashSet<ElementId> knownBusyIds = new HashSet<ElementId>();
+
+            Dictionary<ElementId, string> idealNumbers = ComputeNumbering(
                 document,
-                deleteCandidateIds.Concat(modifySheetIds).Distinct().ToList());
-            HashSet<ElementId> editableIds = editability.EditableIds;
+                ordered,
+                outsideNumbers,
+                new HashSet<ElementId>(),
+                null,
+                startNumber,
+                null,
+                null);
 
+            List<ElementId> editCandidates = deleteCandidateIds
+                .Concat(ordered
+                    .Where(a => idealNumbers[a.Sheet.Id] != (a.Sheet.SheetNumber?.Trim() ?? string.Empty)
+                                || renamePendingIds.Contains(a.Sheet.Id))
+                    .Select(a => a.Sheet.Id))
+                .Distinct()
+                .ToList();
+
+            Logger.Info($"Editability will be checked for {editCandidates.Count} of {ordered.Count} group sheets (write candidates only).");
+
+            HashSet<ElementId> editableIds = new HashSet<ElementId>();
+            List<WorksharingSkippedElement> skippedElements = new List<WorksharingSkippedElement>();
             Dictionary<ElementId, string> ownersById = new Dictionary<ElementId, string>();
-            foreach (WorksharingSkippedElement skipped in editability.SkippedElements)
+            MergeCheckout(document, editCandidates, editableIds, skippedElements, ownersById);
+
+            List<string> conflictedNumbers = new List<string>();
+            Dictionary<ElementId, string> desiredNumbers = idealNumbers;
+            List<SheetAnalysis> movers = new List<SheetAnalysis>();
+            int refineIterations = 0;
+
+            while (true)
             {
-                ownersById[skipped.Id] = skipped.Owner;
+                knownBusyIds = new HashSet<ElementId>();
+                Dictionary<string, ElementId> reservedNumbers = new Dictionary<string, ElementId>(outsideNumbers, StringComparer.Ordinal);
+
+                foreach (SheetAnalysis analysis in ordered)
+                {
+                    if (editableIds.Contains(analysis.Sheet.Id) || !ownersById.ContainsKey(analysis.Sheet.Id))
+                    {
+                        continue;
+                    }
+
+                    knownBusyIds.Add(analysis.Sheet.Id);
+                    string keptNumber = analysis.Sheet.SheetNumber?.Trim();
+                    if (!string.IsNullOrEmpty(keptNumber))
+                    {
+                        reservedNumbers[keptNumber] = analysis.Sheet.Id;
+                    }
+                }
+
+                numberingBreaks.Clear();
+                conflictedNumbers.Clear();
+
+                desiredNumbers = ComputeNumbering(
+                    document,
+                    ordered,
+                    reservedNumbers,
+                    knownBusyIds,
+                    ownersById,
+                    startNumber,
+                    numberingBreaks,
+                    conflictedNumbers);
+
+                movers = ordered
+                    .Where(a => editableIds.Contains(a.Sheet.Id)
+                                && desiredNumbers[a.Sheet.Id] != (a.Sheet.SheetNumber?.Trim() ?? string.Empty))
+                    .ToList();
+
+                List<ElementId> pendingIds = ordered
+                    .Where(a => !editableIds.Contains(a.Sheet.Id)
+                                && !knownBusyIds.Contains(a.Sheet.Id)
+                                && desiredNumbers[a.Sheet.Id] != (a.Sheet.SheetNumber?.Trim() ?? string.Empty))
+                    .Select(a => a.Sheet.Id)
+                    .ToList();
+
+                if (pendingIds.Count == 0)
+                {
+                    break;
+                }
+
+                if (refineIterations >= 5)
+                {
+                    Logger.Warn($"Numbering refinement did not settle after {refineIterations} iterations; {pendingIds.Count} sheets left unedited.");
+                    break;
+                }
+
+                refineIterations++;
+                Logger.Info($"Busy sheets shifted the numbering plan; checking out {pendingIds.Count} more sheets (iteration {refineIterations}).");
+                MergeCheckout(document, pendingIds, editableIds, skippedElements, ownersById);
             }
+
+            Logger.Info($"Numbering plan: {movers.Count} sheets to renumber, {ordered.Count - movers.Count - knownBusyIds.Count} already correct, {knownBusyIds.Count} busy.");
 
             List<ElementId> deletableIds = new List<ElementId>();
             HashSet<ElementId> deletableSignalSheetIds = new HashSet<ElementId>();
@@ -179,27 +270,35 @@ namespace AssemblingManager.Revit.Commands
                 warnings.Add($"Посторонние виды и спецификации, сохранённые в проекте: {preservedForeignCount}.");
             }
 
-            HashSet<ElementId> nonEditableSheetIds = new HashSet<ElementId>(
-                modifySheetIds.Where(id => !editableIds.Contains(id)));
-
-            if (nonEditableSheetIds.Count > 0)
+            if (knownBusyIds.Count > 0)
             {
-                warnings.Add($"Не переименовано/перенумеровано (занято другими пользователями): {nonEditableSheetIds.Count} листов.");
+                warnings.Add($"Не переименовано/перенумеровано (занято другими пользователями): {knownBusyIds.Count} листов.");
             }
 
-            foreach (WorksharingSkippedElement skipped in editability.SkippedElements)
+            foreach (WorksharingSkippedElement skipped in skippedElements)
             {
                 Element element = document.GetElement(skipped.Id);
                 string elementDescription = element != null ? element.Name : skipped.Id.ToString();
                 Logger.Info($"Skipped (owner '{skipped.Owner}', {skipped.Reason}): {elementDescription} ({skipped.Id}).");
             }
 
-            if (editability.SkippedElements.Count > 0)
+            if (skippedElements.Count > 0)
             {
-                IEnumerable<string> ownerGroups = editability.SkippedElements
+                IEnumerable<string> ownerGroups = skippedElements
                     .GroupBy(s => s.Owner)
                     .Select(g => $"{g.Key} ({g.Count()})");
                 warnings.Add("Владельцы занятых элементов: " + string.Join(", ", ownerGroups) + ".");
+            }
+
+            foreach (SheetAnalysis analysis in ordered)
+            {
+                if (!knownBusyIds.Contains(analysis.Sheet.Id) || !renamePendingIds.Contains(analysis.Sheet.Id))
+                {
+                    continue;
+                }
+
+                string owner = ownersById.TryGetValue(analysis.Sheet.Id, out string sheetOwner) ? sheetOwner : "неизвестно";
+                nameBreaks.Add($"«{SheetService.GetSheetName(analysis.Sheet)}» — имя не приведено к «{analysis.SingleBaseName}» (лист занят, владелец: {owner})");
             }
 
             using (TransactionGroup transactionGroup = new TransactionGroup(document, "Assembling Manager"))
@@ -269,11 +368,9 @@ namespace AssemblingManager.Revit.Commands
                             occupiedNames.Add(SheetService.GetSheetName(analysis.Sheet).Trim());
                         }
 
-                        HashSet<string> validAssemblyNames = _sheetService.GetAssemblyNames(document);
-
                         foreach (SheetAnalysis analysis in ordered)
                         {
-                            if (nonEditableSheetIds.Contains(analysis.Sheet.Id))
+                            if (knownBusyIds.Contains(analysis.Sheet.Id))
                             {
                                 continue;
                             }
@@ -295,12 +392,22 @@ namespace AssemblingManager.Revit.Commands
                                 {
                                     Logger.Error($"Could not rename sheet '{sheetName}' to '{analysis.SingleBaseName}': {ex}");
                                     warnings.Add($"Не удалось переименовать лист «{sheetName}»: {ex.Message}");
+                                    nameBreaks.Add($"«{sheetName}» — имя не приведено к «{analysis.SingleBaseName}»: {ex.Message}");
                                 }
                             }
                         }
 
-                        RenumberSheets(document, ordered, nonEditableSheetIds, ownersById, startNumber, renumberLog, warnings);
+                        result.UnchangedCount = ordered.Count - movers.Count - knownBusyIds.Count;
+                        result.BusyCount = knownBusyIds.Count;
+
+                        if (movers.Count > 0)
+                        {
+                            RenumberSheets(ordered, movers, desiredNumbers, outsideNumbers, renumberLog, warnings);
+                        }
+
                         result.RenumberedCount = renumberLog.Count;
+
+                        Logger.Info($"Numbering writes: {renumberLog.Count} of {ordered.Count} sheets (already correct: {result.UnchangedCount}, busy: {result.BusyCount}).");
 
                         document.Regenerate();
                         Logger.Info("Document regenerated to refresh the project browser.");
@@ -322,6 +429,26 @@ namespace AssemblingManager.Revit.Commands
                 }
             }
 
+            if (numberingBreaks.Count > 0)
+            {
+                warnings.Add("Нумерация сбилась: " + string.Join("; ", numberingBreaks) + ". Освободите занятые листы/виды и повторите модуль.");
+            }
+
+            if (nameBreaks.Count > 0)
+            {
+                warnings.Add("Сортировка по имени сбилась: " + string.Join("; ", nameBreaks) + ".");
+            }
+
+            if (result.BusyCount > 0 && numberingBreaks.Count == 0 && nameBreaks.Count == 0)
+            {
+                warnings.Add("Нумерация не сбилась (занятые листы сохранили номера, соответствующие порядку).");
+            }
+
+            if (conflictedNumbers.Count > 0)
+            {
+                warnings.Add("Занятые номера листов: №" + string.Join(", №", conflictedNumbers) + ".");
+            }
+
             RefreshProjectBrowser(uiApplication);
 
             stopwatch.Stop();
@@ -334,6 +461,7 @@ namespace AssemblingManager.Revit.Commands
                 result.SignalSheetsDeletedCount,
                 result.SignalViewsDeletedCount,
                 result.RenumberedCount,
+                result.UnchangedCount,
                 renameLog,
                 warnings);
             reportDialog.ShowDialog();
@@ -359,7 +487,7 @@ namespace AssemblingManager.Revit.Commands
             }
         }
 
-        private List<SheetAnalysis> BuildAnalysis(Document doc, SheetGroupNode group, HashSet<string> assemblyNames)
+        private List<SheetAnalysis> BuildAnalysis(Document doc, SheetGroupNode group, HashSet<string> assemblyNames, SheetContentIndex contentIndex)
         {
             List<SheetAnalysis> result = new List<SheetAnalysis>();
             HashSet<ElementId> sheetsWithContent = _sheetService.GetSheetIdsWithMeaningfulContent(doc, assemblyNames);
@@ -375,7 +503,7 @@ namespace AssemblingManager.Revit.Commands
                     OldNumber = sheet.SheetNumber?.Trim() ?? string.Empty
                 };
 
-                foreach (Viewport viewport in new FilteredElementCollector(doc, sheet.Id).OfClass(typeof(Viewport)).Cast<Viewport>())
+                foreach (Viewport viewport in contentIndex.GetViewports(sheet.Id))
                 {
                     View view = doc.GetElement(viewport.ViewId) as View;
                     if (view == null)
@@ -390,7 +518,7 @@ namespace AssemblingManager.Revit.Commands
                     }
                 }
 
-                foreach (ScheduleSheetInstance instance in new FilteredElementCollector(doc, sheet.Id).OfClass(typeof(ScheduleSheetInstance)).Cast<ScheduleSheetInstance>())
+                foreach (ScheduleSheetInstance instance in contentIndex.GetSchedules(sheet.Id))
                 {
                     ViewSchedule schedule = doc.GetElement(instance.ScheduleId) as ViewSchedule;
                     if (schedule == null)
@@ -414,6 +542,7 @@ namespace AssemblingManager.Revit.Commands
         private List<ElementId> CollectSignalSheetContent(
             Document doc,
             ViewSheet sheet,
+            SheetContentIndex contentIndex,
             HashSet<string> assemblyNames,
             out int foreignCount)
         {
@@ -421,7 +550,7 @@ namespace AssemblingManager.Revit.Commands
             foreignCount = 0;
             List<ElementId> ids = new List<ElementId> { sheet.Id };
 
-            foreach (Viewport viewport in new FilteredElementCollector(doc, sheet.Id).OfClass(typeof(Viewport)).Cast<Viewport>())
+            foreach (Viewport viewport in contentIndex.GetViewports(sheet.Id))
             {
                 View view = doc.GetElement(viewport.ViewId) as View;
                 if (view == null)
@@ -440,7 +569,7 @@ namespace AssemblingManager.Revit.Commands
                 }
             }
 
-            foreach (ScheduleSheetInstance instance in new FilteredElementCollector(doc, sheet.Id).OfClass(typeof(ScheduleSheetInstance)).Cast<ScheduleSheetInstance>())
+            foreach (ScheduleSheetInstance instance in contentIndex.GetSchedules(sheet.Id))
             {
                 if (instance.IsTitleblockRevisionSchedule)
                 {
@@ -675,90 +804,91 @@ namespace AssemblingManager.Revit.Commands
         }
 
         private void RenumberSheets(
-            Document doc,
             List<SheetAnalysis> ordered,
-            HashSet<ElementId> nonEditableSheetIds,
-            IReadOnlyDictionary<ElementId, string> ownersById,
-            int startNumber,
+            List<SheetAnalysis> movers,
+            IReadOnlyDictionary<ElementId, string> desiredNumbers,
+            Dictionary<string, ElementId> outsideNumbers,
             List<string> renumberLog,
             List<string> warnings)
         {
-            if (ordered.Count == 0)
+            if (movers.Count == 0)
             {
                 return;
             }
 
-            HashSet<string> remainingGroupIds = new HashSet<string>(ordered.Select(a => a.Sheet.Id.ToString()));
-            HashSet<string> outsideNumbers = new HashSet<string>(StringComparer.Ordinal);
-            Dictionary<string, ElementId> occupiedByHolderIds = new Dictionary<string, ElementId>(StringComparer.Ordinal);
-
-            foreach (ViewSheet sheet in _sheetService.GetSheets(doc))
-            {
-                if (remainingGroupIds.Contains(sheet.Id.ToString()))
-                {
-                    continue;
-                }
-
-                string number = (sheet.SheetNumber ?? string.Empty).Trim();
-                outsideNumbers.Add(number);
-                occupiedByHolderIds[number] = sheet.Id;
-            }
+            HashSet<string> reservedForTemp = new HashSet<string>(outsideNumbers.Keys, StringComparer.Ordinal);
 
             foreach (SheetAnalysis analysis in ordered)
             {
-                if (!nonEditableSheetIds.Contains(analysis.Sheet.Id))
+                string currentNumber = analysis.Sheet.SheetNumber?.Trim();
+                if (!string.IsNullOrEmpty(currentNumber))
                 {
-                    continue;
+                    reservedForTemp.Add(currentNumber);
                 }
-
-                string skippedNumber = analysis.Sheet.SheetNumber?.Trim();
-                if (string.IsNullOrEmpty(skippedNumber))
-                {
-                    continue;
-                }
-
-                outsideNumbers.Add(skippedNumber);
-                occupiedByHolderIds[skippedNumber] = analysis.Sheet.Id;
             }
 
-            string tempPrefix = "TMP-";
             int tempIndex = 0;
-            while (outsideNumbers.Contains($"{tempPrefix}{tempIndex:D4}"))
-            {
-                tempPrefix = $"TMP{tempIndex + 1}-";
-                tempIndex++;
-            }
 
-            for (int i = 0; i < ordered.Count; i++)
+            foreach (SheetAnalysis analysis in movers)
             {
-                if (nonEditableSheetIds.Contains(ordered[i].Sheet.Id))
+                string tempNumber = $"TMP-{tempIndex:D4}";
+
+                while (reservedForTemp.Contains(tempNumber))
                 {
-                    continue;
+                    tempIndex++;
+                    tempNumber = $"TMP-{tempIndex:D4}";
                 }
 
                 try
                 {
-                    ordered[i].Sheet.SheetNumber = $"{tempPrefix}{i:D4}";
+                    analysis.Sheet.SheetNumber = tempNumber;
+                    reservedForTemp.Add(tempNumber);
+                    tempIndex++;
                 }
                 catch (Exception ex)
                 {
-                    Logger.Error($"Could not set temporary number for sheet '{SheetService.GetSheetName(ordered[i].Sheet)}': {ex}");
-                    warnings.Add($"Не удалось установить временный номер листу «{SheetService.GetSheetName(ordered[i].Sheet)}»: {ex.Message}");
+                    Logger.Error($"Could not set temporary number for sheet '{SheetService.GetSheetName(analysis.Sheet)}': {ex}");
+                    warnings.Add($"Не удалось установить временный номер листу «{SheetService.GetSheetName(analysis.Sheet)}»: {ex.Message}");
                 }
             }
 
+            foreach (SheetAnalysis analysis in movers)
+            {
+                string target = desiredNumbers[analysis.Sheet.Id];
+
+                try
+                {
+                    analysis.Sheet.SheetNumber = target;
+                    renumberLog.Add($"«{analysis.OldNumber ?? string.Empty}» → «{target}»");
+                    Logger.Info($"Renumbered sheet '{SheetService.GetSheetName(analysis.Sheet)}' from '{analysis.OldNumber ?? string.Empty}' to '{target}'.");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Could not set number '{target}' for sheet '{SheetService.GetSheetName(analysis.Sheet)}': {ex}");
+                    warnings.Add($"Не удалось присвоить номер «{target}» листу «{SheetService.GetSheetName(analysis.Sheet)}»: {ex.Message}");
+                }
+            }
+        }
+
+        private Dictionary<ElementId, string> ComputeNumbering(
+            Document doc,
+            List<SheetAnalysis> ordered,
+            Dictionary<string, ElementId> reservedNumbers,
+            HashSet<ElementId> busySheetIds,
+            IReadOnlyDictionary<ElementId, string> ownersById,
+            int startNumber,
+            List<string> numberingBreaks,
+            List<string> conflictedNumbers)
+        {
+            Dictionary<ElementId, string> desired = new Dictionary<ElementId, string>();
             int counter = startNumber;
-            List<string> conflictedNumbers = new List<string>();
-            List<string> numberingBreaks = new List<string>();
-            int skippedSheetsCount = 0;
 
             foreach (SheetAnalysis analysis in ordered)
             {
-                if (nonEditableSheetIds.Contains(analysis.Sheet.Id))
+                if (busySheetIds.Contains(analysis.Sheet.Id))
                 {
-                    skippedSheetsCount++;
                     string keptNumber = analysis.Sheet.SheetNumber?.Trim();
-                    if (int.TryParse(keptNumber, out int keptValue) && keptValue != counter)
+                    if (numberingBreaks != null && int.TryParse(keptNumber, out int keptValue) && keptValue != counter)
                     {
                         string owner = ownersById != null && ownersById.TryGetValue(analysis.Sheet.Id, out string sheetOwner)
                             ? sheetOwner
@@ -772,10 +902,11 @@ namespace AssemblingManager.Revit.Commands
                 string candidate = counter.ToString();
                 int attempts = 0;
 
-                while (outsideNumbers.Contains(candidate) && attempts < 10000)
+                while (reservedNumbers.ContainsKey(candidate) && attempts < 10000)
                 {
-                    if (!conflictedNumbers.Contains(candidate)
-                        && occupiedByHolderIds.TryGetValue(candidate, out ElementId holderId))
+                    if (conflictedNumbers != null
+                        && !conflictedNumbers.Contains(candidate)
+                        && reservedNumbers.TryGetValue(candidate, out ElementId holderId))
                     {
                         Element holder = doc.GetElement(holderId);
                         ViewSheet holderSheet = holder as ViewSheet;
@@ -791,43 +922,81 @@ namespace AssemblingManager.Revit.Commands
                     candidate = counter.ToString();
                 }
 
-                string oldNumber = analysis.OldNumber ?? string.Empty;
-
-                try
-                {
-                    analysis.Sheet.SheetNumber = candidate;
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error($"Could not set number '{candidate}' for sheet '{SheetService.GetSheetName(analysis.Sheet)}': {ex}");
-                    warnings.Add($"Не удалось присвоить номер «{candidate}» листу «{SheetService.GetSheetName(analysis.Sheet)}»: {ex.Message}");
-                    counter++;
-                    continue;
-                }
-
-                renumberLog.Add($"«{oldNumber}» → «{candidate}»");
-
-                Logger.Info($"Renumbered sheet '{SheetService.GetSheetName(analysis.Sheet)}' from '{oldNumber}' to '{candidate}'.");
+                desired[analysis.Sheet.Id] = candidate;
                 counter++;
             }
 
-            if (conflictedNumbers.Count > 0)
+            return desired;
+        }
+
+        private Dictionary<string, ElementId> CollectOutsideNumbers(Document doc, HashSet<ElementId> groupSheetIds)
+        {
+            Dictionary<string, ElementId> result = new Dictionary<string, ElementId>(StringComparer.Ordinal);
+
+            foreach (ViewSheet sheet in _sheetService.GetSheets(doc))
             {
-                warnings.Add("Занятые номера листов: №" + string.Join(", №", conflictedNumbers) + ".");
+                if (groupSheetIds.Contains(sheet.Id))
+                {
+                    continue;
+                }
+
+                string number = (sheet.SheetNumber ?? string.Empty).Trim();
+                result[number] = sheet.Id;
             }
 
-            if (skippedSheetsCount == 0)
+            return result;
+        }
+
+        private HashSet<ElementId> CollectRenamePendingIds(List<SheetAnalysis> ordered, HashSet<string> validAssemblyNames)
+        {
+            HashSet<ElementId> result = new HashSet<ElementId>();
+
+            foreach (SheetAnalysis analysis in ordered)
             {
-                return;
+                if (analysis.SingleBaseName == null || !validAssemblyNames.Contains(analysis.SingleBaseName))
+                {
+                    continue;
+                }
+
+                string sheetName = SheetService.GetSheetName(analysis.Sheet).Trim();
+
+                if (sheetName == analysis.SingleBaseName || HasManualSuffix(sheetName))
+                {
+                    continue;
+                }
+
+                result.Add(analysis.Sheet.Id);
             }
 
-            if (numberingBreaks.Count > 0)
+            return result;
+        }
+
+        private void MergeCheckout(
+            Document doc,
+            ICollection<ElementId> elementIds,
+            HashSet<ElementId> editableIds,
+            List<WorksharingSkippedElement> skippedElements,
+            Dictionary<ElementId, string> ownersById)
+        {
+            WorksharingEditability editability = _worksharingService.CheckEditable(doc, elementIds);
+
+            foreach (ElementId elementId in editability.EditableIds)
             {
-                warnings.Add("Нумерация сбилась: " + string.Join("; ", numberingBreaks) + ". Освободите занятые листы/виды и повторите модуль.");
-                return;
+                editableIds.Add(elementId);
             }
 
-            warnings.Add("Нумерация не сбилась (занятые листы сохранили номера, соответствующие порядку).");
+            foreach (WorksharingSkippedElement skipped in editability.SkippedElements)
+            {
+                editableIds.Remove(skipped.Id);
+
+                if (ownersById.ContainsKey(skipped.Id))
+                {
+                    continue;
+                }
+
+                ownersById[skipped.Id] = skipped.Owner;
+                skippedElements.Add(skipped);
+            }
         }
 
         private class SheetAnalysis
@@ -851,6 +1020,8 @@ namespace AssemblingManager.Revit.Commands
             public int SignalSheetsDeletedCount { get; set; }
             public int SignalViewsDeletedCount { get; set; }
             public int RenumberedCount { get; set; }
+            public int UnchangedCount { get; set; }
+            public int BusyCount { get; set; }
         }
     }
 }

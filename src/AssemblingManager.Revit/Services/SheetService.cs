@@ -574,88 +574,6 @@ namespace AssemblingManager.Revit.Services
                 .ToList();
         }
 
-        public void PrepareSheetsForPlacement(
-            Document doc,
-            ViewSheet targetSheet,
-            List<ViewSheet> duplicateSheets,
-            ObjectViewGroup group,
-            HashSet<ElementId> alreadyPlacedViewIds,
-            Dictionary<ElementId, XYZ> positionHints,
-            IList<string> warnings)
-        {
-            HashSet<ElementId> currentViewIds = GetObjectViewIds(group);
-
-            List<ViewSheet> sheetsToClean = new List<ViewSheet>();
-            sheetsToClean.Add(targetSheet);
-            sheetsToClean.AddRange(duplicateSheets);
-
-            foreach (ViewSheet sheet in sheetsToClean)
-            {
-                bool isTarget = sheet.Id == targetSheet.Id;
-                List<ElementId> toDelete = new List<ElementId>();
-
-                foreach (Viewport viewport in new FilteredElementCollector(doc, sheet.Id).OfClass(typeof(Viewport)).Cast<Viewport>())
-                {
-                    View view = doc.GetElement(viewport.ViewId) as View;
-                    if (view == null || ParseBaseName(view.Name) != group.ObjectName)
-                    {
-                        continue;
-                    }
-
-                    if (currentViewIds.Contains(view.Id))
-                    {
-                        if (isTarget)
-                        {
-                            alreadyPlacedViewIds.Add(view.Id);
-                        }
-                        else
-                        {
-                            positionHints[view.Id] = GetElementOnSheetCenter(doc, sheet, viewport);
-                            toDelete.Add(viewport.Id);
-                            alreadyPlacedViewIds.Remove(view.Id);
-                        }
-                    }
-                    else
-                    {
-                        toDelete.Add(viewport.Id);
-                    }
-                }
-
-                foreach (ScheduleSheetInstance instance in new FilteredElementCollector(doc, sheet.Id).OfClass(typeof(ScheduleSheetInstance)).Cast<ScheduleSheetInstance>())
-                {
-                    View schedule = doc.GetElement(instance.ScheduleId) as View;
-                    if (schedule == null || ParseBaseName(schedule.Name) != group.ObjectName)
-                    {
-                        continue;
-                    }
-
-                    if (currentViewIds.Contains(schedule.Id))
-                    {
-                        if (isTarget)
-                        {
-                            alreadyPlacedViewIds.Add(schedule.Id);
-                        }
-                        else
-                        {
-                            positionHints[schedule.Id] = GetElementOnSheetCenter(doc, sheet, instance);
-                            toDelete.Add(instance.Id);
-                            alreadyPlacedViewIds.Remove(schedule.Id);
-                        }
-                    }
-                    else
-                    {
-                        toDelete.Add(instance.Id);
-                    }
-                }
-
-                if (toDelete.Count > 0)
-                {
-                    doc.Delete(toDelete);
-                    Logger.Info($"Cleaned {toDelete.Count} pattern viewports from sheet '{sheet.SheetNumber}'.");
-                }
-            }
-        }
-
         public static HashSet<ElementId> GetObjectViewIds(ObjectViewGroup group)
         {
             HashSet<ElementId> ids = new HashSet<ElementId>();
@@ -666,31 +584,6 @@ namespace AssemblingManager.Revit.Services
             }
 
             return ids;
-        }
-
-        private static XYZ GetElementOnSheetCenter(Document doc, ViewSheet sheet, Element element)
-        {
-            BoundingBoxXYZ bbox = element.get_BoundingBox(sheet);
-
-            if (bbox != null && bbox.Min != null && bbox.Max != null)
-            {
-                return new XYZ(
-                    (bbox.Min.X + bbox.Max.X) / 2.0,
-                    (bbox.Min.Y + bbox.Max.Y) / 2.0,
-                    0.0);
-            }
-
-            Viewport viewport = element as Viewport;
-            if (viewport != null)
-            {
-                Outline outline = viewport.GetBoxOutline();
-                return new XYZ(
-                    (outline.MinimumPoint.X + outline.MaximumPoint.X) / 2.0,
-                    (outline.MinimumPoint.Y + outline.MaximumPoint.Y) / 2.0,
-                    0.0);
-            }
-
-            return null;
         }
 
         public void PlaceObjectViewsOnSheet(Document doc, ViewSheet sheet, ObjectViewGroup group, HashSet<ElementId> alreadyPlacedViewIds, Dictionary<ElementId, XYZ> positionHints, IList<string> warnings)
