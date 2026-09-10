@@ -198,6 +198,18 @@ function Draw-AddExisting([System.Drawing.Graphics]$g, [int]$size) {
     $g.DrawLine($whitePen, [single]$cx, [single]($cy - $arm), [single]$cx, [single]($cy + $arm))
 }
 
+# --- Оси трубопроводов: штрихпунктирная ось + окружность ---
+function Draw-PipeAxes([System.Drawing.Graphics]$g) {
+    $axisPen = New-Pen $script:Blue 2.5
+    $axisPen.DashStyle = [System.Drawing.Drawing2D.DashStyle]::DashDot
+    $g.DrawLine($axisPen, 2.5, 16, 29.5, 16)
+
+    $light = New-Brush $script:LightBlue
+    $outline = New-Pen $script:DarkBlue 2
+    $g.FillEllipse($light, 10.5, 10.5, 11, 11)
+    $g.DrawEllipse($outline, 10.5, 10.5, 11, 11)
+}
+
 # --- Сборка иконки ---
 function New-Icon([string]$kind, [int]$size) {
     $bmp = [System.Drawing.Bitmap]::new($size, $size)
@@ -219,6 +231,7 @@ function New-Icon([string]$kind, [int]$size) {
             'SortSheets'  { Draw-SortSheets $g $size }
             'Positions'   { Draw-Positions $g $size }
             'AddExisting' { Draw-AddExisting $g $size }
+            'PipeAxes'    { Draw-PipeAxes $g }
             default       { throw "Unknown icon kind: $kind" }
         }
     }
@@ -229,7 +242,7 @@ function New-Icon([string]$kind, [int]$size) {
 }
 
 # --- Генерация ---
-$kinds = @('Settings', 'CreateViews', 'Rename', 'PlaceSheets', 'SortSheets', 'Positions', 'AddExisting')
+$kinds = @('Settings', 'CreateViews', 'Rename', 'PlaceSheets', 'SortSheets', 'Positions', 'AddExisting', 'PipeAxes')
 $sizes = @(16, 32)
 
 if (-not (Test-Path -LiteralPath $OutputDir)) {

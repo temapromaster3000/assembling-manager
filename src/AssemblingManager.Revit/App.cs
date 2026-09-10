@@ -111,6 +111,17 @@ namespace AssemblingManager.Revit
                 neighborAxesButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.NeighborAxes32.png");
                 neighborAxesButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.NeighborAxes16.png");
 
+                PushButtonData pipeAxesButtonData = new PushButtonData(
+                    "PipeAxesLines",
+                    "Оси\nтрубопроводов",
+                    assemblyPath,
+                    "AssemblingManager.Revit.Commands.PipeAxisLinesCommand");
+
+                PushButton pipeAxesButton = draftingPanel.AddItem(pipeAxesButtonData) as PushButton;
+                pipeAxesButton.ToolTip = "Построить осевые линии трубопроводов на планах и разрезах выбранных сборок аннотационными линиями выбранного стиля (дисциплина вида не меняется).";
+                pipeAxesButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.PipeAxes32.png");
+                pipeAxesButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.PipeAxes16.png");
+
                 return Result.Succeeded;
             }
             catch (Exception ex)
