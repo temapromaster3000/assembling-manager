@@ -63,7 +63,7 @@ namespace AssemblingManager.Revit.Commands
 
             Logger.Info($"Collected {allCategories.Count} categories and {allElementIds.Count} elements for {assemblyElements.Count} assemblies.");
 
-            ViewCreationOptions options = null;
+            ViewCreationOptions options = ViewPresetStorage.ReadOptions(document);
 
             while (true)
             {
@@ -82,6 +82,8 @@ namespace AssemblingManager.Revit.Commands
                 }
 
                 options = window.Options;
+
+                ViewPresetStorage.SaveOptions(document, options);
 
                 ViewService viewService = new ViewService();
                 List<ViewConflictItem> conflicts = viewService.FindExistingViewConflicts(document, assemblies, options);
