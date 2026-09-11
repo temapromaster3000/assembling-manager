@@ -57,6 +57,10 @@ $configs = @(
 )
 
 Write-Host "[3/6] Building all configurations..."
+Write-Host "      Building Release (for updater)..."
+dotnet build $solution -c Release --verbosity quiet
+Assert-LastExitCode "Build failed: Release"
+
 foreach ($item in $configs) {
     Write-Host "      Building $($item.Config)..."
     dotnet build $solution -c $item.Config --verbosity quiet
