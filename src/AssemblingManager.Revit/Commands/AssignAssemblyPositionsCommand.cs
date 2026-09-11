@@ -401,24 +401,76 @@ namespace AssemblingManager.Revit.Commands
                 }
             }
 
+            IList<ScheduleSortGroupField> sortGroupFields = definition.GetSortGroupFields();
+            bool hasSortFields = sortGroupFields != null && sortGroupFields.Count > 0;
+
+            Dictionary<ScheduleFieldId, ScheduleSortOrder> sortDirections = new Dictionary<ScheduleFieldId, ScheduleSortOrder>();
+
+            if (hasSortFields)
+            {
+                foreach (ScheduleSortGroupField sortGroupField in sortGroupFields)
+                {
+                    sortDirections[sortGroupField.FieldId] = sortGroupField.SortOrder;
+                }
+            }
+
             Dictionary<GroupKey, List<Element>> groups = new Dictionary<GroupKey, List<Element>>();
+            Dictionary<GroupKey, List<SortValue>> sortValuesByGroup = new Dictionary<GroupKey, List<SortValue>>();
 
             foreach (Element element in elements)
             {
-                GroupKey key = new GroupKey(GetFieldValues(doc, element, groupingFields));
+                List<SortValue> sortValues = GetFieldSortValues(doc, element, groupingFields);
+                GroupKey key = new GroupKey(sortValues.Select(v => v.Text).ToList());
                 List<Element> groupElements;
 
                 if (!groups.TryGetValue(key, out groupElements))
                 {
                     groupElements = new List<Element>();
                     groups[key] = groupElements;
+                    sortValuesByGroup[key] = sortValues;
                 }
 
                 groupElements.Add(element);
             }
 
+            List<string> rawFieldSummary = new List<string>();
+
+            foreach (ScheduleSortGroupField sortGroupField in sortGroupFields)
+            {
+                ScheduleField rawField = definition.GetField(sortGroupField.FieldId);
+                string rawName = rawField != null ? rawField.GetName() : sortGroupField.FieldId.ToString();
+                rawFieldSummary.Add($"'{rawName}' ({sortGroupField.SortOrder})");
+            }
+
+            Logger.Info($"Schedule '{scheduleName}' raw sort fields: {string.Join(", ", rawFieldSummary)}.");
+
+            List<string> fieldSummary = new List<string>();
+
+            foreach (ScheduleField field in groupingFields)
+            {
+                ScheduleSortOrder order;
+                sortDirections.TryGetValue(field.FieldId, out order);
+                string direction = order == ScheduleSortOrder.Descending ? "desc" : "asc";
+                fieldSummary.Add($"'{field.GetName()}' ({direction})");
+            }
+
+            Logger.Info($"Schedule '{scheduleName}' grouping fields: {string.Join(", ", fieldSummary)}.");
+
             List<KeyValuePair<GroupKey, List<Element>>> orderedGroups = groups.ToList();
-            orderedGroups.Sort(new GroupComparer(groupingFields, definition.GetSortGroupFields()));
+
+            if (hasSortFields)
+            {
+                orderedGroups.Sort(new GroupComparer(groupingFields, sortDirections, sortValuesByGroup));
+            }
+            else
+            {
+                Logger.Info($"Schedule '{scheduleName}': no sort/group fields — groups keep model order.");
+            }
+
+            for (int i = 0; i < orderedGroups.Count; i++)
+            {
+                Logger.Debug($"Group order {i + 1}: [{string.Join(" | ", orderedGroups[i].Key.Values)}].");
+            }
 
             int position = 0;
             int skippedGroups = 0;
@@ -469,6 +521,9 @@ namespace AssemblingManager.Revit.Commands
 
                     newCount++;
                 }
+
+                Logger.Debug(
+                    $"Position {assignedPosition}: [{string.Join(" | ", pair.Key.Values)}] ({pair.Value.Count} element(s)).");
 
                 bool groupSet = false;
 
@@ -682,14 +737,13 @@ namespace AssemblingManager.Revit.Commands
             return result;
         }
 
-        private static List<string> GetFieldValues(Document doc, Element element, List<ScheduleField> fields)
+        private static List<SortValue> GetFieldSortValues(Document doc, Element element, List<ScheduleField> fields)
         {
-            List<string> values = new List<string>(fields.Count);
+            List<SortValue> values = new List<SortValue>(fields.Count);
 
             foreach (ScheduleField field in fields)
             {
-                string parameterName = field.GetName();
-                Parameter parameter = element.LookupParameter(parameterName);
+                Parameter parameter = FindParameterById(element, field.ParameterId);
 
                 if (parameter == null || !parameter.HasValue)
                 {
@@ -697,28 +751,58 @@ namespace AssemblingManager.Revit.Commands
                         ? doc.GetElement(element.GetTypeId())
                         : null;
 
-                    parameter = typeElement != null ? typeElement.LookupParameter(parameterName) : null;
+                    parameter = typeElement != null ? FindParameterById(typeElement, field.ParameterId) : null;
                 }
 
-                string value = parameter != null && parameter.HasValue ? parameter.AsString() : string.Empty;
-                values.Add(value ?? string.Empty);
+                if (parameter == null || !parameter.HasValue)
+                {
+                    values.Add(new SortValue { Text = string.Empty });
+                    continue;
+                }
+
+                switch (parameter.StorageType)
+                {
+                    case StorageType.Double:
+                        values.Add(new SortValue
+                        {
+                            Number = parameter.AsDouble(),
+                            IsNumeric = true,
+                            Text = parameter.AsString() ?? string.Empty
+                        });
+                        break;
+                    case StorageType.Integer:
+                        values.Add(new SortValue
+                        {
+                            Number = parameter.AsInteger(),
+                            IsNumeric = true,
+                            Text = parameter.AsString() ?? string.Empty
+                        });
+                        break;
+                    default:
+                        values.Add(new SortValue { Text = parameter.AsString() ?? string.Empty });
+                        break;
+                }
             }
 
             return values;
         }
 
-        private static int FindColumnByParamId(TableSectionData body, ElementId parameterId)
+        private static Parameter FindParameterById(Element element, ElementId parameterId)
         {
-            for (int column = body.FirstColumnNumber; column <= body.LastColumnNumber; column++)
+            if (parameterId == null || parameterId == ElementId.InvalidElementId)
             {
-                ElementId cellParamId = body.GetCellParamId(body.FirstRowNumber, column);
-                if (cellParamId == parameterId)
+                return null;
+            }
+
+            foreach (Parameter parameter in element.Parameters)
+            {
+                if (parameter.Id == parameterId)
                 {
-                    return column;
+                    return parameter;
                 }
             }
 
-            return -1;
+            return null;
         }
 
         private class GroupKey : IEquatable<GroupKey>
@@ -752,35 +836,60 @@ namespace AssemblingManager.Revit.Commands
             }
         }
 
+        private class SortValue
+        {
+            public double? Number { get; set; }
+            public bool IsNumeric { get; set; }
+            public string Text { get; set; }
+        }
+
         private class GroupComparer : IComparer<KeyValuePair<GroupKey, List<Element>>>
         {
+            private static readonly NaturalStringComparer Natural = new NaturalStringComparer();
             private readonly List<ScheduleField> _fields;
             private readonly Dictionary<ScheduleFieldId, ScheduleSortOrder> _directions;
+            private readonly Dictionary<GroupKey, List<SortValue>> _sortValues;
 
-            public GroupComparer(List<ScheduleField> fields, IList<ScheduleSortGroupField> sortGroupFields)
+            public GroupComparer(
+                List<ScheduleField> fields,
+                Dictionary<ScheduleFieldId, ScheduleSortOrder> directions,
+                Dictionary<GroupKey, List<SortValue>> sortValues)
             {
                 _fields = fields;
-                _directions = new Dictionary<ScheduleFieldId, ScheduleSortOrder>();
-
-                foreach (ScheduleSortGroupField sortGroupField in sortGroupFields)
-                {
-                    _directions[sortGroupField.FieldId] = sortGroupField.SortOrder;
-                }
+                _directions = directions;
+                _sortValues = sortValues;
             }
 
             public int Compare(KeyValuePair<GroupKey, List<Element>> x, KeyValuePair<GroupKey, List<Element>> y)
             {
+                List<SortValue> valuesX;
+                _sortValues.TryGetValue(x.Key, out valuesX);
+                List<SortValue> valuesY;
+                _sortValues.TryGetValue(y.Key, out valuesY);
+
                 for (int i = 0; i < _fields.Count; i++)
                 {
-                    ScheduleField field = _fields[i];
-                    string valueX = i < x.Key.Values.Count ? x.Key.Values[i] ?? string.Empty : string.Empty;
-                    string valueY = i < y.Key.Values.Count ? y.Key.Values[i] ?? string.Empty : string.Empty;
+                    SortValue valueX = GetAt(valuesX, i);
+                    SortValue valueY = GetAt(valuesY, i);
 
-                    int cmp = string.Compare(valueX, valueY, StringComparison.OrdinalIgnoreCase);
+                    int cmp;
+                    if (valueX != null && valueY != null
+                        && valueX.IsNumeric && valueY.IsNumeric
+                        && valueX.Number.HasValue && valueY.Number.HasValue)
+                    {
+                        cmp = valueX.Number.Value.CompareTo(valueY.Number.Value);
+                    }
+                    else
+                    {
+                        string textX = valueX != null ? valueX.Text ?? string.Empty : string.Empty;
+                        string textY = valueY != null ? valueY.Text ?? string.Empty : string.Empty;
+                        cmp = Natural.Compare(textX, textY);
+                    }
+
                     if (cmp != 0)
                     {
                         ScheduleSortOrder order;
-                        if (_directions.TryGetValue(field.FieldId, out order)
+                        if (_directions.TryGetValue(_fields[i].FieldId, out order)
                             && order == ScheduleSortOrder.Descending)
                         {
                             return -cmp;
@@ -791,6 +900,11 @@ namespace AssemblingManager.Revit.Commands
                 }
 
                 return 0;
+            }
+
+            private static SortValue GetAt(List<SortValue> values, int index)
+            {
+                return values != null && index < values.Count ? values[index] : null;
             }
         }
 
