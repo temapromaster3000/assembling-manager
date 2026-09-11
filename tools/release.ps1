@@ -57,9 +57,9 @@ $configs = @(
 )
 
 Write-Host "[3/6] Building all configurations..."
-Write-Host "      Building Release (for updater)..."
-dotnet build $solution -c Release --verbosity quiet
-Assert-LastExitCode "Build failed: Release"
+Write-Host "      Building Updater (Release)..."
+dotnet build (Join-Path $repoRoot "src\AssemblingManager.Updater\AssemblingManager.Updater.csproj") -c Release --verbosity quiet
+Assert-LastExitCode "Build failed: Updater (Release)"
 
 foreach ($item in $configs) {
     Write-Host "      Building $($item.Config)..."
