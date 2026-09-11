@@ -367,12 +367,12 @@ namespace AssemblingManager.Revit.Services
                 dx);
         }
 
-        public View3D Create3DView(Document doc, string assemblyName, BoundingBoxXYZ bbox, int? viewFamilyTypeId = null)
+        public View3D Create3DView(Document doc, string assemblyName, int? viewFamilyTypeId = null)
         {
             ElementId selectedViewFamilyTypeId = ResolveViewFamilyTypeId(doc, ViewFamily.ThreeDimensional, viewFamilyTypeId);
 
             View3D view3D = View3D.CreateIsometric(doc, selectedViewFamilyTypeId);
-            Apply3DViewGeometry(view3D, assemblyName, bbox);
+            view3D.Name = assemblyName + View3DSuffix;
 
             return view3D;
         }
@@ -490,12 +490,6 @@ namespace AssemblingManager.Revit.Services
             return viewSection;
         }
 
-        private void Apply3DViewGeometry(View3D view3D, string assemblyName, BoundingBoxXYZ bbox)
-        {
-            view3D.Name = assemblyName + View3DSuffix;
-            view3D.SetSectionBox(bbox);
-        }
-
         public ViewPlan DuplicatePlanView(Document doc, ViewPlan source, string assemblyName, BoundingBoxXYZ bbox, ElementId levelId, int? viewFamilyTypeId = null)
         {
             if (!source.CanViewBeDuplicated(ViewDuplicateOption.Duplicate))
@@ -520,7 +514,7 @@ namespace AssemblingManager.Revit.Services
             return viewPlan;
         }
 
-        public View3D Duplicate3DView(Document doc, View3D source, string assemblyName, BoundingBoxXYZ bbox, int? viewFamilyTypeId = null)
+        public View3D Duplicate3DView(Document doc, View3D source, string assemblyName, int? viewFamilyTypeId = null)
         {
             if (!source.CanViewBeDuplicated(ViewDuplicateOption.Duplicate))
             {
@@ -534,7 +528,7 @@ namespace AssemblingManager.Revit.Services
                 throw new InvalidOperationException("Duplicated 3D view is not valid.");
             }
 
-            Apply3DViewGeometry(view3D, assemblyName, bbox);
+            view3D.Name = assemblyName + View3DSuffix;
 
             if (viewFamilyTypeId.HasValue)
             {
@@ -634,7 +628,7 @@ namespace AssemblingManager.Revit.Services
             }
         }
 
-        public void Update3DViewGeometry(View3D view3D, string assemblyName, BoundingBoxXYZ bbox)
+        public void Update3DViewGeometry(View3D view3D, string assemblyName)
         {
             if (view3D == null || !view3D.IsValidObject)
             {
@@ -647,21 +641,13 @@ namespace AssemblingManager.Revit.Services
             {
                 UnlockView(view3D);
 
-                BoundingBoxXYZ currentSectionBox = view3D.GetSectionBox();
-                BoundingBoxXYZ sectionBox = new BoundingBoxXYZ();
-                sectionBox.Min = new XYZ(
-                    Math.Min(currentSectionBox.Min.X, bbox.Min.X),
-                    Math.Min(currentSectionBox.Min.Y, bbox.Min.Y),
-                    Math.Min(currentSectionBox.Min.Z, bbox.Min.Z));
-                sectionBox.Max = new XYZ(
-                    Math.Max(currentSectionBox.Max.X, bbox.Max.X),
-                    Math.Max(currentSectionBox.Max.Y, bbox.Max.Y),
-                    Math.Max(currentSectionBox.Max.Z, bbox.Max.Z));
-
-                view3D.SetSectionBox(sectionBox);
+                if (view3D.IsSectionBoxActive)
+                {
+                    view3D.IsSectionBoxActive = false;
+                    Logger.Info($"Updated 3D view '{viewName}': section box deactivated.");
+                }
 
                 LockView(view3D);
-                Logger.Info($"Updated 3D view '{viewName}': section box expanded.");
             }
             catch (Exception ex)
             {
