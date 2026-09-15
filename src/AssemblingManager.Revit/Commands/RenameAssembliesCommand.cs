@@ -285,6 +285,14 @@ namespace AssemblingManager.Revit.Commands
                 filterService.DeleteExistingFilter(doc, oldName + AssemblyFilterSuffix);
                 filterService.DeleteExistingFilter(doc, oldName + SectionMarkFilterSuffix);
 
+                HashSet<ElementId> outdatedElementIds = parameterService.FindElementIdsWithParameterValue(doc, parameterId, oldName);
+                parameterService.SetParameterValue(doc, parameterId, outdatedElementIds, rename.Assembly.Name);
+
+                int outdatedInsideAssembly = outdatedElementIds.Count(id => rename.ElementIds.Contains(id));
+                Logger.Info(
+                    $"Updated parameter '{AssemblyParameterName}' for {outdatedElementIds.Count} elements with outdated value '{oldName}' " +
+                    $"(assembly '{rename.Assembly.Name}': {outdatedInsideAssembly} members, {outdatedElementIds.Count - outdatedInsideAssembly} external elements).");
+
                 reportItems.Add(new RenameReportItem
                 {
                     OldName = oldName,

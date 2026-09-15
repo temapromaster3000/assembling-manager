@@ -363,6 +363,36 @@ namespace AssemblingManager.Revit.Services
             }
         }
 
+        public HashSet<ElementId> FindElementIdsWithParameterValue(Document doc, ElementId parameterId, string value)
+        {
+            if (doc == null)
+            {
+                throw new ArgumentNullException(nameof(doc));
+            }
+
+            if (parameterId == null)
+            {
+                throw new ArgumentNullException(nameof(parameterId));
+            }
+
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                throw new ArgumentException("Значение параметра не может быть пустым.", nameof(value));
+            }
+
+#if REVIT2023_OR_GREATER
+            FilterRule rule = ParameterFilterRuleFactory.CreateEqualsRule(parameterId, value);
+#else
+            FilterRule rule = ParameterFilterRuleFactory.CreateEqualsRule(parameterId, value, true);
+#endif
+
+            return new HashSet<ElementId>(
+                new FilteredElementCollector(doc)
+                    .WhereElementIsNotElementType()
+                    .WherePasses(new ElementParameterFilter(rule))
+                    .ToElementIds());
+        }
+
         private CategorySet GetBindingCategories(Binding binding)
         {
             if (binding == null)
