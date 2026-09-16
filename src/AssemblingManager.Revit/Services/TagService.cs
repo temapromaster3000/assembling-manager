@@ -19,6 +19,7 @@ namespace AssemblingManager.Revit.Services
         private const double ElbowMargin = 1.0 / 304.8;
         private const double HeadMargin = 3.0 / 304.8;
         private const int MaxLadderSteps = 8;
+        private const int MaxProbeCandidates = 10;
 
         private struct TagDims
         {
@@ -28,6 +29,7 @@ namespace AssemblingManager.Revit.Services
             public double LeftGap;
             public double UpGap;
             public double DownGap;
+            public double MeasuredScale;
         }
 
         private readonly Dictionary<string, TagDims> _tagDimsCache =
@@ -751,6 +753,14 @@ namespace AssemblingManager.Revit.Services
                     double headRight = anchorRight + direction.Dx * offsetFt;
                     double headUp = anchorUp + direction.Dy * offsetFt;
 
+                    XYZ head = anchor + right * (headRight - anchorRight) + up * (headUp - anchorUp);
+
+                    if (!dimsKnown && MeasureRealTagDims(doc, tag, view, element, option.Symbol, anchor))
+                    {
+                        tagDims = GetTagDimensions(view, option.Symbol);
+                        dimsKnown = true;
+                    }
+
                     double elbowRight;
                     if (!dimsKnown)
                     {
@@ -765,7 +775,6 @@ namespace AssemblingManager.Revit.Services
                         elbowRight = headRight - (tagDims.LeftGap + ElbowMargin);
                     }
 
-                    XYZ head = anchor + right * (headRight - anchorRight) + up * (headUp - anchorUp);
                     XYZ elbow = anchor + right * (elbowRight - anchorRight) + up * (headUp - anchorUp);
 
 #if REVIT2022_OR_GREATER
@@ -1068,8 +1077,10 @@ namespace AssemblingManager.Revit.Services
                 return;
             }
 
-            Dictionary<string, Tuple<View, Element, FamilySymbol>> toMeasure =
-                new Dictionary<string, Tuple<View, Element, FamilySymbol>>(StringComparer.Ordinal);
+            Dictionary<string, FamilySymbol> symbolsById =
+                new Dictionary<string, FamilySymbol>(StringComparer.Ordinal);
+            Dictionary<string, List<Tuple<View, Element>>> candidatesBySymbol =
+                new Dictionary<string, List<Tuple<View, Element>>>(StringComparer.Ordinal);
 
             foreach (ViewSchedule schedule in schedules)
             {
@@ -1105,34 +1116,55 @@ namespace AssemblingManager.Revit.Services
                             continue;
                         }
 
-#pragma warning disable CS0618
-                        string key = option.Symbol.Id.IntegerValue + "|" + view.Id.IntegerValue;
-#pragma warning restore CS0618
+                        string key = GetTagDimsKey(option.Symbol);
 
                         if (_tagDimsCache.ContainsKey(key))
                         {
                             continue;
                         }
 
-                        if (!toMeasure.ContainsKey(key))
+                        List<Tuple<View, Element>> candidates;
+                        if (!candidatesBySymbol.TryGetValue(key, out candidates))
                         {
-                            toMeasure[key] = Tuple.Create(view, element, option.Symbol);
+                            candidates = new List<Tuple<View, Element>>();
+                            candidatesBySymbol[key] = candidates;
+                            symbolsById[key] = option.Symbol;
+                        }
+
+                        if (candidates.Count < MaxProbeCandidates)
+                        {
+                            candidates.Add(Tuple.Create(view, element));
                         }
                     }
                 }
             }
 
-            foreach (KeyValuePair<string, Tuple<View, Element, FamilySymbol>> pair in toMeasure)
+            foreach (KeyValuePair<string, List<Tuple<View, Element>>> pair in candidatesBySymbol)
             {
-                MeasureTagDimensions(doc, pair.Value.Item1, pair.Value.Item2, pair.Value.Item3);
+                FamilySymbol symbol = symbolsById[pair.Key];
+
+                foreach (Tuple<View, Element> candidate in pair.Value)
+                {
+                    MeasureTagDimensions(doc, candidate.Item1, candidate.Item2, symbol);
+
+                    if (_tagDimsCache.ContainsKey(pair.Key))
+                    {
+                        break;
+                    }
+                }
+
+                if (!_tagDimsCache.ContainsKey(pair.Key))
+                {
+                    Logger.Warn(
+                        $"Could not measure tag dims for '{symbol.Family.Name}:{symbol.Name}': " +
+                        $"no visible candidate element in any view ({pair.Value.Count} tried).");
+                }
             }
         }
 
         private void MeasureTagDimensions(Document doc, View view, Element element, FamilySymbol symbol)
         {
-#pragma warning disable CS0618
-            string key = symbol.Id.IntegerValue + "|" + view.Id.IntegerValue;
-#pragma warning restore CS0618
+            string key = GetTagDimsKey(symbol);
 
             if (_tagDimsCache.ContainsKey(key))
             {
@@ -1211,13 +1243,15 @@ namespace AssemblingManager.Revit.Services
                                 LeftGap = Math.Max(0, headX - rect.MinX),
                                 RightGap = Math.Max(0, rect.MaxX - headX),
                                 DownGap = Math.Max(0, headY - rect.MinY),
-                                UpGap = Math.Max(0, rect.MaxY - headY)
+                                UpGap = Math.Max(0, rect.MaxY - headY),
+                                MeasuredScale = view.Scale
                             };
 
                             _tagDimsCache[key] = dims;
 
                             Logger.Info(
-                                $"Tag dims measured for '{symbol.Family.Name}:{symbol.Name}' in view '{view.Name}': " +
+                                $"Tag dims measured for '{symbol.Family.Name}:{symbol.Name}' in view '{view.Name}' " +
+                                $"(scale 1:{view.Scale}): " +
                                 $"{dims.Width:F2} x {dims.Height:F2} ft (L {dims.LeftGap:F2}, R {dims.RightGap:F2}, " +
                                 $"D {dims.DownGap:F2}, U {dims.UpGap:F2}).");
                         }
@@ -1234,19 +1268,99 @@ namespace AssemblingManager.Revit.Services
             }
         }
 
+        private bool MeasureRealTagDims(Document doc, IndependentTag tag, View view, Element element, FamilySymbol symbol, XYZ anchor)
+        {
+            string key = GetTagDimsKey(symbol);
+
+            if (_tagDimsCache.ContainsKey(key))
+            {
+                return false;
+            }
+
+            try
+            {
+#if REVIT2022_OR_GREATER
+                tag.SetLeaderElbow(new Reference(element), anchor);
+#else
+                tag.LeaderElbow = anchor;
+#endif
+                tag.TagHeadPosition = anchor;
+
+                doc.Regenerate();
+
+                BoundingBoxXYZ tagBox = tag.get_BoundingBox(view);
+
+                if (tagBox == null || tagBox.Min == null || tagBox.Max == null
+                    || !IsFinite(tagBox.Min) || !IsFinite(tagBox.Max))
+                {
+                    return false;
+                }
+
+                XYZ right = view.RightDirection;
+                XYZ up = view.UpDirection;
+                Rect2D rect = ProjectWorldBox(tagBox, right, up);
+
+                double headX = anchor.X * right.X + anchor.Y * right.Y + anchor.Z * right.Z;
+                double headY = anchor.X * up.X + anchor.Y * up.Y + anchor.Z * up.Z;
+
+                TagDims dims = new TagDims
+                {
+                    Width = rect.Width,
+                    Height = rect.Height,
+                    LeftGap = Math.Max(0, headX - rect.MinX),
+                    RightGap = Math.Max(0, rect.MaxX - headX),
+                    DownGap = Math.Max(0, headY - rect.MinY),
+                    UpGap = Math.Max(0, rect.MaxY - headY),
+                    MeasuredScale = view.Scale
+                };
+
+                _tagDimsCache[key] = dims;
+
+                Logger.Info(
+                    $"Tag dims measured from real tag for '{symbol.Family.Name}:{symbol.Name}' in view '{view.Name}' " +
+                    $"(scale 1:{view.Scale}): {dims.Width:F2} x {dims.Height:F2} ft " +
+                    $"(L {dims.LeftGap:F2}, R {dims.RightGap:F2}, D {dims.DownGap:F2}, U {dims.UpGap:F2}).");
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn(
+                    $"Could not measure tag dims from real tag '{symbol.Family.Name}:{symbol.Name}': {ex.Message}");
+                return false;
+            }
+        }
+
         private TagDims GetTagDimensions(View view, FamilySymbol symbol)
         {
-#pragma warning disable CS0618
-            string key = symbol.Id.IntegerValue + "|" + view.Id.IntegerValue;
-#pragma warning restore CS0618
+            string key = GetTagDimsKey(symbol);
 
             TagDims cached;
             if (_tagDimsCache.TryGetValue(key, out cached))
             {
+                if (cached.MeasuredScale > 0 && Math.Abs(cached.MeasuredScale - view.Scale) > 1e-9)
+                {
+                    double ratio = view.Scale / cached.MeasuredScale;
+
+                    cached.Width *= ratio;
+                    cached.Height *= ratio;
+                    cached.LeftGap *= ratio;
+                    cached.RightGap *= ratio;
+                    cached.UpGap *= ratio;
+                    cached.DownGap *= ratio;
+                }
+
                 return cached;
             }
 
             return default;
+        }
+
+        private static string GetTagDimsKey(FamilySymbol symbol)
+        {
+#pragma warning disable CS0618
+            return symbol.Id.IntegerValue.ToString();
+#pragma warning restore CS0618
         }
 
         private struct Rect2D
