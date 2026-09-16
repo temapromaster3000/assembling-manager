@@ -78,11 +78,22 @@ namespace AssemblingManager.Revit.Commands
                 assemblies.Select(a => a.Name),
                 StringComparer.Ordinal);
 
+            HashSet<Category> allCategories = new HashSet<Category>();
             List<AssemblyRenameInfo> renames = new List<AssemblyRenameInfo>();
 
             foreach (AssemblyInstance assembly in assemblies)
             {
                 ICollection<ElementId> elementIds = assemblyService.CollectAssemblyElements(document, assembly);
+
+                foreach (ElementId elementId in elementIds)
+                {
+                    Element element = document.GetElement(elementId);
+                    if (element != null && element.Category != null)
+                    {
+                        allCategories.Add(element.Category);
+                    }
+                }
+
                 HashSet<string> values = parameterService.GetDistinctParameterValues(document, parameterId, elementIds);
 
                 List<string> oldNames = new List<string>();
@@ -111,7 +122,7 @@ namespace AssemblingManager.Revit.Commands
                 renames.Add(new AssemblyRenameInfo(assembly, elementIds, oldNames));
             }
 
-            Logger.Info($"Detected {renames.Count} renamed assemblies.");
+            Logger.Info($"Detected {renames.Count} renamed assemblies, {allCategories.Count} categories across all assemblies.");
 
             if (renames.Count == 0)
             {
@@ -163,7 +174,7 @@ namespace AssemblingManager.Revit.Commands
 
                         foreach (AssemblyRenameInfo rename in renames)
                         {
-                            ProcessRename(document, rename, parameterId, parameterService, viewService, filterService, scheduleService, reportItems);
+                            ProcessRename(document, rename, parameterId, parameterService, allCategories, viewService, filterService, scheduleService, reportItems);
                         }
 
                         transaction.Commit();
@@ -250,6 +261,7 @@ namespace AssemblingManager.Revit.Commands
             AssemblyRenameInfo rename,
             ElementId parameterId,
             ParameterService parameterService,
+            HashSet<Category> allCategories,
             ViewService viewService,
             FilterService filterService,
             ScheduleService scheduleService,
@@ -320,26 +332,24 @@ namespace AssemblingManager.Revit.Commands
                 }
             }
 
-            CreateAndApplyNewFilters(doc, rename, parameterId, filterService, viewService);
+            CreateAndApplyNewFilters(doc, rename, parameterId, parameterService, allCategories, filterService, viewService);
         }
 
-        private void CreateAndApplyNewFilters(Document doc, AssemblyRenameInfo rename, ElementId parameterId, FilterService filterService, ViewService viewService)
+        private void CreateAndApplyNewFilters(
+            Document doc,
+            AssemblyRenameInfo rename,
+            ElementId parameterId,
+            ParameterService parameterService,
+            HashSet<Category> allCategories,
+            FilterService filterService,
+            ViewService viewService)
         {
-            HashSet<Category> categories = new HashSet<Category>();
-
-            foreach (ElementId elementId in rename.ElementIds)
-            {
-                Element element = doc.GetElement(elementId);
-                if (element != null && element.Category != null)
-                {
-                    categories.Add(element.Category);
-                }
-            }
-
             try
             {
-                ParameterFilterElement assemblyFilter = filterService.CreateAssemblyFilter(doc, parameterId, rename.Assembly.Name, categories);
-                ParameterFilterElement sectionMarkFilter = filterService.CreateSectionMarkFilter(doc, rename.Assembly.Name);
+                parameterService.AddMissingCategories(doc, parameterId, allCategories);
+
+                (ParameterFilterElement assemblyFilter, bool _) = filterService.EnsureAssemblyFilter(doc, parameterId, rename.Assembly.Name, allCategories);
+                (ParameterFilterElement sectionMarkFilter, bool _) = filterService.EnsureSectionMarkFilter(doc, rename.Assembly.Name);
 
                 List<View> allAssemblyViews = viewService.GetExistingAssemblyViews(doc, rename.Assembly.Name);
                 foreach (View view in allAssemblyViews)

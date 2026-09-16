@@ -74,11 +74,60 @@ namespace AssemblingManager.Revit.Commands
             int nestedCount = elementIds.Count - selectedIds.Count;
             Logger.Info($"Total elements including nested: {elementIds.Count} (nested: {nestedCount}).");
 
-            AssignExistingService assignService = new AssignExistingService();
-            HashSet<Category> categories = assignService.CollectCategories(document, elementIds);
-            Logger.Info($"Collected {categories.Count} categories from selected elements.");
+            HashSet<Category> assemblyCategories = CollectAssemblyCategories(document, assemblies, assemblyService);
+            Logger.Info($"Collected {assemblyCategories.Count} categories from all assemblies.");
 
-            AssignExistingDialog dialog = new AssignExistingDialog(document, assemblies, elementIds.Count, nestedCount);
+            HashSet<ElementId> allowedElementIds = new HashSet<ElementId>();
+            List<string> disallowedCategoryNames = new List<string>();
+
+            foreach (ElementId elementId in elementIds)
+            {
+                Element element = document.GetElement(elementId);
+
+                if (element?.Category != null && assemblyCategories.Contains(element.Category))
+                {
+                    allowedElementIds.Add(elementId);
+                }
+                else
+                {
+                    disallowedCategoryNames.Add(element?.Category != null ? element.Category.Name : "без категории");
+                }
+            }
+
+            disallowedCategoryNames = disallowedCategoryNames
+                .Distinct()
+                .OrderBy(n => n)
+                .ToList();
+            int disallowedCount = elementIds.Count - allowedElementIds.Count;
+
+            if (disallowedCount > 0)
+            {
+                Logger.Warn($"Disallowed categories among picked elements: {string.Join(", ", disallowedCategoryNames)}; {disallowedCount} elements will be skipped.");
+
+                MessageBox.Show(
+                    "Категория добавляемого элемента не относится к сборкам.\n\n" +
+                    $"Пропущены категории: {string.Join(", ", disallowedCategoryNames)} (элементов: {disallowedCount}).\n\n" +
+                    "Добавлять существующее можно только для категорий, которые встречаются в сборках.",
+                    "Добавить существующее",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+
+            if (allowedElementIds.Count == 0)
+            {
+                Logger.Info("All picked elements have disallowed categories. Command cancelled.");
+                MessageBox.Show(
+                    "Ни один выбранный элемент не относится к категориям, встречающимся в сборках. Добавление отменено.",
+                    "Добавить существующее",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return Result.Cancelled;
+            }
+
+            nestedCount = allowedElementIds.Count - selectedIds.Count(id => allowedElementIds.Contains(id));
+            Logger.Info($"Elements allowed for adding: {allowedElementIds.Count} (nested: {nestedCount}).");
+
+            AssignExistingDialog dialog = new AssignExistingDialog(document, assemblies, allowedElementIds.Count, nestedCount);
             bool? dialogResult = dialog.ShowDialog();
 
             if (dialogResult != true)
@@ -93,11 +142,11 @@ namespace AssemblingManager.Revit.Commands
 
             ParameterService parameterService = new ParameterService();
 
-            HashSet<string> existingValues = parameterService.GetDistinctParameterValues(document, parameterName, elementIds);
+            HashSet<string> existingValues = parameterService.GetDistinctParameterValues(document, parameterName, allowedElementIds);
 
             if (existingValues.Count > 0)
             {
-                int filledCount = parameterService.CountExistingValues(document, parameterName, elementIds);
+                int filledCount = parameterService.CountExistingValues(document, parameterName, allowedElementIds);
 
                 List<string> valueList = existingValues.Take(5).ToList();
                 string valuesText = string.Join(", ", valueList);
@@ -155,13 +204,15 @@ namespace AssemblingManager.Revit.Commands
                             if (parameterId == null)
                             {
                                 parameterExisted = false;
-                                Logger.Info($"Parameter '{PluginParameterName}' not found, creating with {categories.Count} categories.");
-                                parameterId = parameterService.GetOrCreateParameter(document, uiApplication.Application, categories.ToList());
+                                Logger.Info($"Parameter '{PluginParameterName}' not found, creating with {assemblyCategories.Count} assembly categories.");
+                                parameterId = parameterService.GetOrCreateParameter(document, uiApplication.Application, assemblyCategories.ToList());
                             }
                         }
 
                         AssignExistingService service = new AssignExistingService();
-                        result = service.Execute(document, parameterId, parameterName, assembly, elementIds.ToList(), nestedCount, parameterExisted);
+                        result = service.Execute(document, parameterId, parameterName, assembly, allowedElementIds.ToList(), assemblyCategories, nestedCount, parameterExisted);
+                        result.SkippedDisallowedCount = disallowedCount;
+                        result.SkippedDisallowedCategoryNames = disallowedCategoryNames;
 
                         transaction.Commit();
                         Logger.Info("Transaction committed.");
@@ -207,28 +258,36 @@ namespace AssemblingManager.Revit.Commands
                 lines.Add($"Пропущено (параметр недоступен для категории): {result.SkippedNoParameterCount}.");
             }
 
+            if (result.SkippedDisallowedCount > 0)
+            {
+                lines.Add($"Пропущено (категория не из сборок): {result.SkippedDisallowedCount} ({string.Join(", ", result.SkippedDisallowedCategoryNames)}).");
+            }
+
             if (result.AddedParameterCategories.Count > 0)
             {
-                lines.Add($"Категории добавлены в привязку параметра: {string.Join(", ", result.AddedParameterCategories)}.");
-            }
-
-            string filterName = result.AssemblyName + "_Фильтр";
-
-            if (result.FilterCreated)
-            {
-                lines.Add($"Фильтр «{filterName}» создан.");
-            }
-            else if (result.FilterRecreated)
-            {
-                lines.Add($"Фильтр «{filterName}» пересоздан с новыми категориями: {string.Join(", ", result.AddedFilterCategories)}.");
-                lines.Add("Если модель в совместной работе — фильтр снялся со всех видов, назначьте его заново или перезапустите «Сформировать виды».");
-            }
-            else
-            {
-                lines.Add($"Фильтр «{filterName}» обновлён (изменений не потребовалось).");
+                lines.Add($"Категории сборок добавлены в привязку параметра: {string.Join(", ", result.AddedParameterCategories)}.");
             }
 
             return string.Join(Environment.NewLine, lines);
+        }
+
+        private static HashSet<Category> CollectAssemblyCategories(Document doc, List<AssemblyInstance> assemblies, AssemblyService assemblyService)
+        {
+            HashSet<Category> categories = new HashSet<Category>();
+
+            foreach (AssemblyInstance assembly in assemblies)
+            {
+                foreach (ElementId elementId in assemblyService.CollectAssemblyElements(doc, assembly))
+                {
+                    Element element = doc.GetElement(elementId);
+                    if (element != null && element.Category != null)
+                    {
+                        categories.Add(element.Category);
+                    }
+                }
+            }
+
+            return categories;
         }
     }
 }

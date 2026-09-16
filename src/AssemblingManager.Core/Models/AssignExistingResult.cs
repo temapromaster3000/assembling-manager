@@ -18,18 +18,16 @@ namespace AssemblingManager.Core.Models
 
         public int SkippedNoParameterCount { get; set; }
 
+        public int SkippedDisallowedCount { get; set; }
+
+        public List<string> SkippedDisallowedCategoryNames { get; set; }
+
         public List<string> AddedParameterCategories { get; set; }
-
-        public List<string> AddedFilterCategories { get; set; }
-
-        public bool FilterCreated { get; set; }
-
-        public bool FilterRecreated { get; set; }
 
         public AssignExistingResult()
         {
+            SkippedDisallowedCategoryNames = new List<string>();
             AddedParameterCategories = new List<string>();
-            AddedFilterCategories = new List<string>();
         }
     }
 }
