@@ -294,6 +294,22 @@ namespace AssemblingManager.Revit.Commands
                     }
                 }
 
+                foreach (ViewSection customSection in viewService.GetAssemblySectionsByPrefix(doc, oldName))
+                {
+                    string oldSectionName = customSection.Name;
+                    string newSectionName = rename.Assembly.Name + oldSectionName.Substring(oldName.Length);
+
+                    try
+                    {
+                        customSection.Name = newSectionName;
+                        Logger.Info($"Renamed custom section '{oldSectionName}' to '{newSectionName}'.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Could not rename custom section '{oldSectionName}': {ex.Message}");
+                    }
+                }
+
                 filterService.DeleteExistingFilter(doc, oldName + AssemblyFilterSuffix);
                 filterService.DeleteExistingFilter(doc, oldName + SectionMarkFilterSuffix);
 
@@ -351,8 +367,8 @@ namespace AssemblingManager.Revit.Commands
                 (ParameterFilterElement assemblyFilter, bool _) = filterService.EnsureAssemblyFilter(doc, parameterId, rename.Assembly.Name, allCategories);
                 (ParameterFilterElement sectionMarkFilter, bool _) = filterService.EnsureSectionMarkFilter(doc, rename.Assembly.Name);
 
-                List<View> allAssemblyViews = viewService.GetExistingAssemblyViews(doc, rename.Assembly.Name);
-                foreach (View view in allAssemblyViews)
+                List<View> filterTargets = CollectFilterTargets(doc, viewService, rename.Assembly.Name);
+                foreach (View view in filterTargets)
                 {
                     filterService.ApplyFilterToView(view, assemblyFilter.Id, assemblyFilter.Name);
 
@@ -371,6 +387,23 @@ namespace AssemblingManager.Revit.Commands
             {
                 Logger.Warn($"Could not recreate filters for assembly '{rename.Assembly.Name}': {ex.Message}");
             }
+        }
+
+        private static List<View> CollectFilterTargets(Document doc, ViewService viewService, string assemblyName)
+        {
+            List<View> targets = new List<View>();
+            HashSet<ElementId> seenIds = new HashSet<ElementId>();
+
+            foreach (View view in viewService.GetExistingAssemblyViews(doc, assemblyName)
+                         .Concat(viewService.GetAssemblySectionsByPrefix(doc, assemblyName)))
+            {
+                if (view != null && view.IsValidObject && seenIds.Add(view.Id))
+                {
+                    targets.Add(view);
+                }
+            }
+
+            return targets;
         }
 
         private class AssemblyRenameInfo

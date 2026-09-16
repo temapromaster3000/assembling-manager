@@ -267,6 +267,18 @@ namespace AssemblingManager.Revit.Services
                 .ToList();
         }
 
+        public List<ViewSection> GetAssemblySectionsByPrefix(Document doc, string assemblyName)
+        {
+            string prefix = assemblyName + "_";
+
+            return new FilteredElementCollector(doc)
+                .OfClass(typeof(ViewSection))
+                .Cast<ViewSection>()
+                .Where(v => v.IsValidObject && !v.IsTemplate && v.Name.StartsWith(prefix, StringComparison.Ordinal))
+                .OrderBy(v => v.Name, StringComparer.Ordinal)
+                .ToList();
+        }
+
         private const double MillimetersToFeet = 1.0 / 304.8;
 
         public ViewPlan CreatePlanView(Document doc, string assemblyName, BoundingBoxXYZ bbox, ElementId levelId, int? viewFamilyTypeId = null)
@@ -562,158 +574,6 @@ namespace AssemblingManager.Revit.Services
             }
 
             return viewSection;
-        }
-
-        public void UpdatePlanViewGeometry(ViewPlan viewPlan, string assemblyName, BoundingBoxXYZ bbox)
-        {
-            if (viewPlan == null || !viewPlan.IsValidObject)
-            {
-                return;
-            }
-
-            string viewName = assemblyName + PlanSuffix;
-
-            try
-            {
-                BoundingBoxXYZ currentCrop = viewPlan.CropBox;
-                BoundingBoxXYZ newCrop = BuildPlanCropBox(bbox);
-                viewPlan.CropBox = UnionBoundingBox(currentCrop, newCrop);
-
-                ExpandPlanViewRange(viewPlan, bbox);
-
-                Logger.Info($"Updated plan view '{viewName}': crop box and view range expanded.");
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn($"Could not update plan view '{viewName}': {ex}");
-            }
-        }
-
-        public void UpdateSectionViewGeometry(ViewSection viewSection, string assemblyName, string suffix, BoundingBoxXYZ bbox)
-        {
-            if (viewSection == null || !viewSection.IsValidObject)
-            {
-                return;
-            }
-
-            string viewName = assemblyName + suffix;
-
-            try
-            {
-                BoundingBoxXYZ currentCrop = viewSection.CropBox;
-                Transform transform = currentCrop.Transform;
-                Transform inverse = transform.Inverse;
-
-                XYZ bboxMinLocal = inverse.OfPoint(bbox.Min);
-                XYZ bboxMaxLocal = inverse.OfPoint(bbox.Max);
-                double offset = GetSectionBoxOffset();
-
-                BoundingBoxXYZ newCrop = new BoundingBoxXYZ();
-                newCrop.Transform = transform;
-                newCrop.Min = new XYZ(
-                    Math.Min(currentCrop.Min.X, Math.Min(bboxMinLocal.X, bboxMaxLocal.X) - offset),
-                    Math.Min(currentCrop.Min.Y, Math.Min(bboxMinLocal.Y, bboxMaxLocal.Y) - offset),
-                    Math.Min(currentCrop.Min.Z, Math.Min(bboxMinLocal.Z, bboxMaxLocal.Z) - offset));
-                newCrop.Max = new XYZ(
-                    Math.Max(currentCrop.Max.X, Math.Max(bboxMinLocal.X, bboxMaxLocal.X) + offset),
-                    Math.Max(currentCrop.Max.Y, Math.Max(bboxMinLocal.Y, bboxMaxLocal.Y) + offset),
-                    Math.Max(currentCrop.Max.Z, Math.Max(bboxMinLocal.Z, bboxMaxLocal.Z) + offset));
-
-                viewSection.CropBox = newCrop;
-                Logger.Info($"Updated section view '{viewName}': crop box expanded.");
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn($"Could not update section view '{viewName}': {ex}");
-            }
-        }
-
-        public void Update3DViewGeometry(View3D view3D, string assemblyName)
-        {
-            if (view3D == null || !view3D.IsValidObject)
-            {
-                return;
-            }
-
-            string viewName = assemblyName + View3DSuffix;
-
-            try
-            {
-                UnlockView(view3D);
-
-                if (view3D.IsSectionBoxActive)
-                {
-                    view3D.IsSectionBoxActive = false;
-                    Logger.Info($"Updated 3D view '{viewName}': section box deactivated.");
-                }
-
-                LockView(view3D);
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn($"Could not update 3D view '{viewName}': {ex}");
-            }
-        }
-
-        private static BoundingBoxXYZ UnionBoundingBox(BoundingBoxXYZ current, BoundingBoxXYZ additional)
-        {
-            Transform transform = current.Transform;
-            Transform inverse = transform.Inverse;
-
-            XYZ additionalMinLocal = inverse.OfPoint(additional.Min);
-            XYZ additionalMaxLocal = inverse.OfPoint(additional.Max);
-
-            BoundingBoxXYZ union = new BoundingBoxXYZ();
-            union.Transform = transform;
-            union.Min = new XYZ(
-                Math.Min(current.Min.X, Math.Min(additionalMinLocal.X, additionalMaxLocal.X)),
-                Math.Min(current.Min.Y, Math.Min(additionalMinLocal.Y, additionalMaxLocal.Y)),
-                Math.Min(current.Min.Z, Math.Min(additionalMinLocal.Z, additionalMaxLocal.Z)));
-            union.Max = new XYZ(
-                Math.Max(current.Max.X, Math.Max(additionalMinLocal.X, additionalMaxLocal.X)),
-                Math.Max(current.Max.Y, Math.Max(additionalMinLocal.Y, additionalMaxLocal.Y)),
-                Math.Max(current.Max.Z, Math.Max(additionalMinLocal.Z, additionalMaxLocal.Z)));
-            return union;
-        }
-
-        private void ExpandPlanViewRange(ViewPlan viewPlan, BoundingBoxXYZ bbox)
-        {
-            const double viewRangeOffsetMm = 5000;
-            Document doc = viewPlan.Document;
-
-            double newTopAbsMm = GetRoundedPlanMaxZMm(bbox) + viewRangeOffsetMm;
-            double newBottomAbsMm = GetRoundedPlanMinZMm(bbox) - viewRangeOffsetMm;
-            double newCutAbsMm = (GetRoundedPlanMinZMm(bbox) + GetRoundedPlanMaxZMm(bbox)) / 2.0;
-
-            PlanViewRange range = viewPlan.GetViewRange();
-
-            double topLevelElevationMm = GetPlaneLevelElevationMm(doc, range, PlanViewPlane.TopClipPlane);
-            double cutLevelElevationMm = GetPlaneLevelElevationMm(doc, range, PlanViewPlane.CutPlane);
-            double bottomLevelElevationMm = GetPlaneLevelElevationMm(doc, range, PlanViewPlane.BottomClipPlane);
-            double depthLevelElevationMm = GetPlaneLevelElevationMm(doc, range, PlanViewPlane.ViewDepthPlane);
-
-            double topAbsMm = topLevelElevationMm + range.GetOffset(PlanViewPlane.TopClipPlane) / MillimetersToFeet;
-            double cutAbsMm = cutLevelElevationMm + range.GetOffset(PlanViewPlane.CutPlane) / MillimetersToFeet;
-            double bottomAbsMm = bottomLevelElevationMm + range.GetOffset(PlanViewPlane.BottomClipPlane) / MillimetersToFeet;
-            double depthAbsMm = depthLevelElevationMm + range.GetOffset(PlanViewPlane.ViewDepthPlane) / MillimetersToFeet;
-
-            double newTopAbs = Math.Max(topAbsMm, newTopAbsMm);
-            double newBottomAbs = Math.Min(bottomAbsMm, newBottomAbsMm);
-            double newDepthAbs = Math.Min(depthAbsMm, newBottomAbsMm);
-            double newCut = (cutAbsMm > newTopAbs || cutAbsMm < newBottomAbs) ? newCutAbsMm : cutAbsMm;
-
-            range.SetOffset(PlanViewPlane.TopClipPlane, (newTopAbs - topLevelElevationMm) * MillimetersToFeet);
-            range.SetOffset(PlanViewPlane.CutPlane, (newCut - cutLevelElevationMm) * MillimetersToFeet);
-            range.SetOffset(PlanViewPlane.BottomClipPlane, (newBottomAbs - bottomLevelElevationMm) * MillimetersToFeet);
-            range.SetOffset(PlanViewPlane.ViewDepthPlane, (newDepthAbs - depthLevelElevationMm) * MillimetersToFeet);
-
-            viewPlan.SetViewRange(range);
-        }
-
-        private static double GetPlaneLevelElevationMm(Document doc, PlanViewRange range, PlanViewPlane plane)
-        {
-            Level level = doc.GetElement(range.GetLevelId(plane)) as Level;
-            return (level?.Elevation ?? 0.0) / MillimetersToFeet;
         }
 
         private void ChangeViewFamilyType(View view, ViewFamily expectedFamily, int viewFamilyTypeId)

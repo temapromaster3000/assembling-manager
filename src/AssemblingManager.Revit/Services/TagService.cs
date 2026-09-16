@@ -497,6 +497,19 @@ namespace AssemblingManager.Revit.Services
             return fromFilter;
         }
 
+        private List<View> CollectAssemblyViewsForTagging(Document doc, string assemblyName)
+        {
+            List<View> views = new List<View>();
+
+            views.AddRange(_viewService
+                .GetExistingAssemblyViews(doc, assemblyName)
+                .Where(v => v is ViewPlan));
+
+            views.AddRange(_viewService.GetAssemblySectionsByPrefix(doc, assemblyName));
+
+            return views;
+        }
+
         public static bool AssemblyExists(Document doc, string assemblyName)
         {
             return new FilteredElementCollector(doc)
@@ -536,10 +549,7 @@ namespace AssemblingManager.Revit.Services
                     continue;
                 }
 
-                List<View> views = _viewService
-                    .GetExistingAssemblyViews(doc, assemblyName)
-                    .Where(v => v is ViewPlan || v is ViewSection)
-                    .ToList();
+                List<View> views = CollectAssemblyViewsForTagging(doc, assemblyName);
 
                 if (views.Count == 0)
                 {
@@ -1074,10 +1084,7 @@ namespace AssemblingManager.Revit.Services
                     continue;
                 }
 
-                List<View> views = _viewService
-                    .GetExistingAssemblyViews(doc, assemblyName)
-                    .Where(v => v is ViewPlan || v is ViewSection)
-                    .ToList();
+                List<View> views = CollectAssemblyViewsForTagging(doc, assemblyName);
 
                 if (views.Count == 0)
                 {

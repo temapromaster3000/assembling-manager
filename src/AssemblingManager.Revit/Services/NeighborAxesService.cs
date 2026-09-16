@@ -162,14 +162,6 @@ namespace AssemblingManager.Revit.Services
             List<NeighborAxesTask> tasks = new List<NeighborAxesTask>();
             ViewService viewService = new ViewService();
 
-            string[] sectionSuffixes =
-            {
-                ViewService.FrontViewSuffix,
-                ViewService.BackViewSuffix,
-                ViewService.RightViewSuffix,
-                ViewService.LeftViewSuffix
-            };
-
             foreach (AssemblyInstance assembly in assemblies)
             {
                 if (assembly == null || !assembly.IsValidObject)
@@ -189,17 +181,15 @@ namespace AssemblingManager.Revit.Services
                     Logger.Warn($"Assembly '{assembly.Name}': plan view not found. Skipped.");
                 }
 
-                foreach (string suffix in sectionSuffixes)
+                List<ViewSection> sections = viewService.GetAssemblySectionsByPrefix(doc, assembly.Name);
+                if (sections.Count == 0)
                 {
-                    ViewSection section = viewService.GetViewByName(doc, assembly.Name + suffix, typeof(ViewSection)) as ViewSection;
-                    if (section != null)
-                    {
-                        views.Add(new ViewEntry { View = section });
-                    }
-                    else
-                    {
-                        Logger.Warn($"Assembly '{assembly.Name}': section view '{assembly.Name + suffix}' not found. Skipped.");
-                    }
+                    Logger.Warn($"Assembly '{assembly.Name}': section views not found. Skipped.");
+                }
+
+                foreach (ViewSection section in sections)
+                {
+                    views.Add(new ViewEntry { View = section });
                 }
 
                 foreach (ViewEntry entry in views)
