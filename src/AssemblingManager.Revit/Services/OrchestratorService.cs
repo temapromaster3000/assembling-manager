@@ -72,25 +72,11 @@ namespace AssemblingManager.Revit.Services
                     Logger.Error("Parameter 'ADSK_Группирование' not found in project.");
                     throw new InvalidOperationException("Параметр 'ADSK_Группирование' не найден в проекте.");
                 }
-
-                if (options.MissingCategoriesCount > 0)
-                {
-                    _parameterService.AddMissingCategories(doc, parameterId, allCategories);
-                }
             }
             else if (options.CreateNewParameter)
             {
                 Logger.Info("Creating new grouping parameter.");
                 parameterId = _parameterService.GetOrCreateParameter(doc, app, allCategories);
-
-                try
-                {
-                    _parameterService.AddMissingCategories(doc, parameterId, allCategories);
-                }
-                catch (Exception ex)
-                {
-                    Logger.Warn($"Could not add missing categories to parameter binding: {ex.Message}");
-                }
             }
             else
             {
@@ -127,10 +113,13 @@ namespace AssemblingManager.Revit.Services
                                  options.CreateLeftView ||
                                  options.Create3D;
 
+            HashSet<string> dataWorkAssemblies = new HashSet<string>();
+
             foreach (AssemblyInstance assembly in assemblies)
             {
                 ICollection<ElementId> elementIds = assemblyElements[assembly];
-                _parameterService.SetParameterValue(doc, parameterId, elementIds, assembly.Name);
+                bool hasUpdateAction = resolution.Items.Any(i => i.AssemblyName == assembly.Name && i.Action == ConflictAction.Update);
+                bool assemblyDataWork = false;
 
                 ElementId levelId = null;
                 if (createAnyView)
@@ -154,13 +143,13 @@ namespace AssemblingManager.Revit.Services
                             options.PlanTemplateId,
                             () => _viewService.CreatePlanView(doc, assembly.Name, bbox, levelId, options.PlanViewFamilyTypeId),
                             m => _viewService.DuplicatePlanView(doc, (ViewPlan)m, assembly.Name, bbox, levelId, options.PlanViewFamilyTypeId),
-                            m => _viewService.UpdatePlanViewGeometry((ViewPlan)m, assembly.Name, bbox),
                             master,
                             resolution,
                             result,
                             typeof(ViewPlan),
                             ViewService.ViewKindPlan);
                         TrackNewView(newViewsByAssembly, assembly.Name, view, createdOrReplaced);
+                        assemblyDataWork |= createdOrReplaced;
                         if (createdOrReplaced && !viewMasters.ContainsKey(ViewService.ViewKindPlan))
                             viewMasters[ViewService.ViewKindPlan] = view;
                     }
@@ -175,13 +164,13 @@ namespace AssemblingManager.Revit.Services
                             options.SectionTemplateId,
                             () => _viewService.CreateFrontView(doc, assembly.Name, bbox, options.SectionViewFamilyTypeId),
                             m => _viewService.DuplicateSectionView(doc, (ViewSection)m, assembly.Name, ViewService.FrontViewSuffix, bbox, options.SectionViewFamilyTypeId),
-                            m => _viewService.UpdateSectionViewGeometry((ViewSection)m, assembly.Name, ViewService.FrontViewSuffix, bbox),
                             null,
                             resolution,
                             result,
                             typeof(ViewSection),
                             ViewService.ViewKindFrontView);
                         TrackNewView(newViewsByAssembly, assembly.Name, view, createdOrReplaced);
+                        assemblyDataWork |= createdOrReplaced;
                     }
 
                     if (options.CreateBackView)
@@ -194,13 +183,13 @@ namespace AssemblingManager.Revit.Services
                             options.SectionTemplateId,
                             () => _viewService.CreateBackView(doc, assembly.Name, bbox, options.SectionViewFamilyTypeId),
                             m => _viewService.DuplicateSectionView(doc, (ViewSection)m, assembly.Name, ViewService.BackViewSuffix, bbox, options.SectionViewFamilyTypeId),
-                            m => _viewService.UpdateSectionViewGeometry((ViewSection)m, assembly.Name, ViewService.BackViewSuffix, bbox),
                             null,
                             resolution,
                             result,
                             typeof(ViewSection),
                             ViewService.ViewKindBackView);
                         TrackNewView(newViewsByAssembly, assembly.Name, view, createdOrReplaced);
+                        assemblyDataWork |= createdOrReplaced;
                     }
 
                     if (options.CreateRightView)
@@ -213,13 +202,13 @@ namespace AssemblingManager.Revit.Services
                             options.SectionTemplateId,
                             () => _viewService.CreateRightView(doc, assembly.Name, bbox, options.SectionViewFamilyTypeId),
                             m => _viewService.DuplicateSectionView(doc, (ViewSection)m, assembly.Name, ViewService.RightViewSuffix, bbox, options.SectionViewFamilyTypeId),
-                            m => _viewService.UpdateSectionViewGeometry((ViewSection)m, assembly.Name, ViewService.RightViewSuffix, bbox),
                             null,
                             resolution,
                             result,
                             typeof(ViewSection),
                             ViewService.ViewKindRightView);
                         TrackNewView(newViewsByAssembly, assembly.Name, view, createdOrReplaced);
+                        assemblyDataWork |= createdOrReplaced;
                     }
 
                     if (options.CreateLeftView)
@@ -232,13 +221,13 @@ namespace AssemblingManager.Revit.Services
                             options.SectionTemplateId,
                             () => _viewService.CreateLeftView(doc, assembly.Name, bbox, options.SectionViewFamilyTypeId),
                             m => _viewService.DuplicateSectionView(doc, (ViewSection)m, assembly.Name, ViewService.LeftViewSuffix, bbox, options.SectionViewFamilyTypeId),
-                            m => _viewService.UpdateSectionViewGeometry((ViewSection)m, assembly.Name, ViewService.LeftViewSuffix, bbox),
                             null,
                             resolution,
                             result,
                             typeof(ViewSection),
                             ViewService.ViewKindLeftView);
                         TrackNewView(newViewsByAssembly, assembly.Name, view, createdOrReplaced);
+                        assemblyDataWork |= createdOrReplaced;
                     }
 
                     if (options.Create3D)
@@ -252,13 +241,13 @@ namespace AssemblingManager.Revit.Services
                             options.View3DTemplateId,
                             () => _viewService.Create3DView(doc, assembly.Name, options.View3DViewFamilyTypeId),
                             m => _viewService.Duplicate3DView(doc, (View3D)m, assembly.Name, options.View3DViewFamilyTypeId),
-                            m => _viewService.Update3DViewGeometry((View3D)m, assembly.Name),
                             master,
                             resolution,
                             result,
                             typeof(View3D),
                             ViewService.ViewKind3D);
                         TrackNewView(newViewsByAssembly, assembly.Name, view, createdOrReplaced);
+                        assemblyDataWork |= createdOrReplaced;
                         if (createdOrReplaced && !viewMasters.ContainsKey(ViewService.ViewKind3D))
                             viewMasters[ViewService.ViewKind3D] = view;
                     }
@@ -266,7 +255,7 @@ namespace AssemblingManager.Revit.Services
 
                 if (options.CreateSchedule && masterSchedule != null)
                 {
-                    CreateOrReplaceSchedule(
+                    (ViewSchedule schedule, bool scheduleCreatedOrReplaced) = CreateOrReplaceSchedule(
                         doc,
                         masterSchedule,
                         parameterId,
@@ -274,6 +263,29 @@ namespace AssemblingManager.Revit.Services
                         options.ScheduleViewTemplateId,
                         resolution,
                         result);
+                    assemblyDataWork |= scheduleCreatedOrReplaced;
+                }
+
+                if (hasUpdateAction || assemblyDataWork)
+                {
+                    try
+                    {
+                        _parameterService.AddMissingCategories(doc, parameterId, allCategories);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Could not add missing categories to parameter binding: {ex.Message}");
+                    }
+
+                    HashSet<ElementId> outdatedMemberIds = _parameterService.FindElementIdsWithOutdatedParameterValue(doc, parameterId, elementIds, assembly.Name);
+                    _parameterService.SetParameterValue(doc, parameterId, outdatedMemberIds, assembly.Name);
+                    dataWorkAssemblies.Add(assembly.Name);
+
+                    Logger.Info($"Assembly '{assembly.Name}': parameter value written to {outdatedMemberIds.Count} of {elementIds.Count} members (new or outdated).");
+                }
+                else
+                {
+                    Logger.Info($"Assembly '{assembly.Name}': all views kept — no data or filter changes.");
                 }
             }
 
@@ -283,6 +295,12 @@ namespace AssemblingManager.Revit.Services
 
             foreach (AssemblyInstance assembly in assemblies)
             {
+                if (!dataWorkAssemblies.Contains(assembly.Name))
+                {
+                    Logger.Debug($"Assembly '{assembly.Name}': filters untouched (all views kept).");
+                    continue;
+                }
+
                 (ParameterFilterElement assemblyFilter, bool assemblyFilterRecreated) = _filterService.EnsureAssemblyFilter(doc, parameterId, assembly.Name, allCategories);
                 (ParameterFilterElement sectionMarkFilter, bool sectionMarkFilterRecreated) = _filterService.EnsureSectionMarkFilter(doc, assembly.Name);
 
@@ -406,7 +424,7 @@ namespace AssemblingManager.Revit.Services
             Logger.Info($"Assembly '{assemblyName}': filter '{assemblyFilter.Name}' applied to {appliedCount}/{total} views; missing on: [{string.Join(", ", missing)}].");
         }
 
-        private (View View, bool CreatedOrReplaced) CreateOrReplaceView(Document doc, string assemblyName, string suffix, int? templateId, Func<View> createFromScratch, Func<View, View> duplicateFromMaster, Action<View> updateExisting, View master, ViewConflictResolution resolution, ViewCreationResult result, Type expectedViewType, string viewKind)
+        private (View View, bool CreatedOrReplaced) CreateOrReplaceView(Document doc, string assemblyName, string suffix, int? templateId, Func<View> createFromScratch, Func<View, View> duplicateFromMaster, View master, ViewConflictResolution resolution, ViewCreationResult result, Type expectedViewType, string viewKind)
         {
             string viewName = assemblyName + suffix;
             View existingView = _viewService.GetViewByName(doc, viewName, expectedViewType);
@@ -429,10 +447,8 @@ namespace AssemblingManager.Revit.Services
 
                 if (action == ConflictAction.Update)
                 {
-                    Logger.Info($"Updating existing view '{viewName}'.");
-                    updateExisting?.Invoke(existingView);
+                    Logger.Info($"Updating existing view '{viewName}': geometry preserved, parameter values and filters are handled separately.");
                     result.UpdatedCount++;
-                    Logger.Debug($"Updated view '{viewName}'.");
                     return (existingView, false);
                 }
 

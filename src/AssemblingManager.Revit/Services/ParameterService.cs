@@ -393,6 +393,56 @@ namespace AssemblingManager.Revit.Services
                     .ToElementIds());
         }
 
+        public HashSet<ElementId> FindElementIdsWithOutdatedParameterValue(Document doc, ElementId parameterId, ICollection<ElementId> elementIds, string value)
+        {
+            if (doc == null)
+            {
+                throw new ArgumentNullException(nameof(doc));
+            }
+
+            if (parameterId == null)
+            {
+                throw new ArgumentNullException(nameof(parameterId));
+            }
+
+            if (elementIds == null)
+            {
+                throw new ArgumentNullException(nameof(elementIds));
+            }
+
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                throw new ArgumentException("Значение параметра не может быть пустым.", nameof(value));
+            }
+
+            SharedParameterElement parameterElement = doc.GetElement(parameterId) as SharedParameterElement;
+            if (parameterElement == null)
+            {
+                throw new InvalidOperationException($"Параметр с Id {parameterId} не найден.");
+            }
+
+            HashSet<ElementId> outdated = new HashSet<ElementId>();
+
+            foreach (ElementId elementId in elementIds)
+            {
+                Element element = doc.GetElement(elementId);
+                if (element == null)
+                {
+                    continue;
+                }
+
+                Parameter parameter = element.LookupParameter(parameterElement.Name);
+                string currentValue = parameter?.AsString();
+
+                if (string.IsNullOrEmpty(currentValue) || string.Compare(currentValue, value, StringComparison.Ordinal) != 0)
+                {
+                    outdated.Add(elementId);
+                }
+            }
+
+            return outdated;
+        }
+
         private CategorySet GetBindingCategories(Binding binding)
         {
             if (binding == null)
