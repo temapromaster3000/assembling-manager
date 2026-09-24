@@ -33,6 +33,7 @@ namespace AssemblingManager.Revit
                 RibbonPanel assembliesPanel = application.CreateRibbonPanel(tabName, "Сборки");
                 RibbonPanel sheetsPanel = application.CreateRibbonPanel(tabName, "Листы");
                 RibbonPanel draftingPanel = application.CreateRibbonPanel(tabName, "Оформление");
+                RibbonPanel pipesPanel = application.CreateRibbonPanel(tabName, "Трубы");
 
                 PushButtonData buttonData = new PushButtonData(
                     "CreateAssemblyViews",
@@ -121,6 +122,17 @@ namespace AssemblingManager.Revit
                 pipeAxesButton.ToolTip = "Построить осевые линии трубопроводов на планах и разрезах выбранных сборок аннотационными линиями выбранного стиля (дисциплина вида не меняется).";
                 pipeAxesButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.PipeAxes32.png");
                 pipeAxesButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.PipeAxes16.png");
+
+                PushButtonData sortamentsButtonData = new PushButtonData(
+                    "Sortaments",
+                    "Сортаменты",
+                    assemblyPath,
+                    "AssemblingManager.Revit.Commands.SortamentsCommand");
+
+                PushButton sortamentsButton = pipesPanel.AddItem(sortamentsButtonData) as PushButton;
+                sortamentsButton.ToolTip = "Просмотр и редактирование каталогов размеров трубопроводов.";
+                sortamentsButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Sortaments32.png");
+                sortamentsButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Sortaments16.png");
 
                 return Result.Succeeded;
             }

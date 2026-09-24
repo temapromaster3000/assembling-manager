@@ -210,6 +210,24 @@ function Draw-PipeAxes([System.Drawing.Graphics]$g) {
     $g.DrawEllipse($outline, 10.5, 10.5, 11, 11)
 }
 
+function Draw-Sortaments([System.Drawing.Graphics]$g) {
+    $white = New-Brush $script:White
+    $light = New-Brush $script:LightBlue
+    $blue = New-Brush $script:Blue
+    $outline = New-Pen $script:DarkGray 1.5
+    $blueOutline = New-Pen $script:DarkBlue 1.5
+
+    $g.FillRectangle($white, 3.5, 3.5, 25, 25)
+    $g.DrawRectangle($outline, 3.5, 3.5, 25, 25)
+    $g.FillRectangle($blue, 5, 5, 22, 4)
+    $g.FillRectangle($light, 5, 11, 13, 3)
+    $g.FillRectangle($light, 5, 17, 13, 3)
+    $g.FillRectangle($light, 5, 23, 13, 3)
+    $g.FillEllipse($light, 19.5, 14.5, 7.5, 7.5)
+    $g.DrawEllipse($blueOutline, 19.5, 14.5, 7.5, 7.5)
+    $g.FillEllipse($blue, 22, 17, 2.5, 2.5)
+}
+
 # --- Сборка иконки ---
 function New-Icon([string]$kind, [int]$size) {
     $bmp = [System.Drawing.Bitmap]::new($size, $size)
@@ -232,6 +250,7 @@ function New-Icon([string]$kind, [int]$size) {
             'Positions'   { Draw-Positions $g $size }
             'AddExisting' { Draw-AddExisting $g $size }
             'PipeAxes'    { Draw-PipeAxes $g }
+            'Sortaments'  { Draw-Sortaments $g }
             default       { throw "Unknown icon kind: $kind" }
         }
     }
@@ -242,7 +261,7 @@ function New-Icon([string]$kind, [int]$size) {
 }
 
 # --- Генерация ---
-$kinds = @('Settings', 'CreateViews', 'Rename', 'PlaceSheets', 'SortSheets', 'Positions', 'AddExisting', 'PipeAxes')
+$kinds = @('Settings', 'CreateViews', 'Rename', 'PlaceSheets', 'SortSheets', 'Positions', 'AddExisting', 'PipeAxes', 'Sortaments')
 $sizes = @(16, 32)
 
 if (-not (Test-Path -LiteralPath $OutputDir)) {
