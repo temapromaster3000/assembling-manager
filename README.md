@@ -2,7 +2,26 @@
 
 C#-плагин для Autodesk Revit 2021–2025, автоматизирующий полный цикл выпуска документации по сборкам (`AssemblyInstance`): от создания видов и спецификаций до листов, позиций и марок.
 
-Плагин работает на вкладке **Assembling Manager** ленты Revit (панели «Сборки», «Листы», «Оформление», «Трубы», «Настройки»).
+![Revit 2021–2025](https://img.shields.io/badge/Revit-2021–2025-0696D7)
+![Версия](https://img.shields.io/github/v/release/temapromaster3000/assembling-manager?label=версия&color=success)
+![Скачивания](https://img.shields.io/github/downloads/temapromaster3000/assembling-manager/total?label=скачиваний)
+![Лицензия](https://img.shields.io/github/license/temapromaster3000/assembling-manager?label=лицензия)
+
+<img src="DOCS/images/hero.png" alt="Вкладка Assembling Manager на ленте Revit: панели «Настройки», «Сборки», «Листы», «Оформление», «Трубы»" width="875">
+
+[Установка](#установка) · [Быстрый старт](#быстрый-старт) · [Возможности](#возможности) · [Releases](https://github.com/temapromaster3000/assembling-manager/releases) · [Сообщить о проблеме](https://github.com/temapromaster3000/assembling-manager/issues)
+
+## Быстрый старт
+
+1. Скачайте `AssemblingManager-<версия>-setup.exe` со страницы [Releases](https://github.com/temapromaster3000/assembling-manager/releases) и запустите.
+2. Откройте Revit — на ленте появится вкладка **Assembling Manager** (панели «Сборки», «Листы», «Оформление», «Трубы», «Настройки»).
+3. Нажмите **«Сформировать виды»** — плагин создаст по каждой сборке план, четыре разреза, 3D-вид и сборочную спецификацию.
+
+<p align="center">
+  <img src="DOCS/images/main-window.png" alt="Главное окно «Сформировать виды»: параметр фильтра, виды, шаблоны и мастер-спецификация" width="606">
+  <br>
+  <em>Главное окно: параметр фильтра, набор видов, шаблоны и мастер-спецификация</em>
+</p>
 
 ## Возможности
 
@@ -142,6 +161,7 @@ assembling-manager
 ├── build/AssemblingManager.sln        # Решение Visual Studio
 ├── addins/                            # Манифесты .addin для каждой версии Revit
 ├── DOCS/                              # Планы фич (realized / in-progress / future)
+│   └── images/                        # Скриншоты для README
 ├── tools/                             # Релизный конвейер и инсталлятор
 ├── build-and-deploy.bat               # Сборка и установка в Revit
 └── Version.txt                        # Версия плагина (единый источник)
@@ -158,5 +178,12 @@ assembling-manager
 ## Важно
 
 - `RevitAPI.dll` и `RevitAPIUI.dll` не входят в репозиторий — приходят через NuGet.
-- Для коммерческого использования замените `VendorId` и `VendorDescription` в `addins/20XX/AssemblingManager.addin`.
 - `AddInId` в манифестах задан уникальным GUID. При конфликте с другим плагином замените его.
+
+## Обратная связь
+
+Нашли ошибку или есть идея? Создайте [issue](https://github.com/temapromaster3000/assembling-manager/issues) — приложите версию Revit, версию плагина и фрагмент лога из `%APPDATA%\Autodesk\Revit\Addins\AssemblingManager\Logs`.
+
+## Лицензия
+
+Исходный код распространяется по лицензии [MIT](LICENSE): можно использовать, изменять и распространять при сохранении копирайта. Собранный плагин публикуется под `VendorId` автора — если делаете свою сборку, замените `VendorId` и `VendorDescription` в `addins/20XX/AssemblingManager.addin`, чтобы не путать пользователей с обновлениями.
