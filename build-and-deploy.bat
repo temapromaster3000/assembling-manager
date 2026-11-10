@@ -2,6 +2,12 @@
 chcp 65001 >nul
 setlocal enabledelayedexpansion
 
+rem VS Code C# Dev Kit injects these variables into its terminal; they break dotnet build.
+set "CustomAfterMicrosoftCommonTargets="
+set "CustomAfterMicrosoftCommonCrossTargetingTargets="
+set "EnableProjectDataOnBuild=false"
+set "EnableProjectDataInProjectFolder=false"
+
 echo ==========================================
 echo Assembling Manager - Build and Deploy
 echo ==========================================

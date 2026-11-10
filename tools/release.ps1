@@ -5,6 +5,12 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# VS Code C# Dev Kit injects these variables into its terminal; they break dotnet build.
+Remove-Item Env:CustomAfterMicrosoftCommonTargets -ErrorAction SilentlyContinue
+Remove-Item Env:CustomAfterMicrosoftCommonCrossTargetingTargets -ErrorAction SilentlyContinue
+$env:EnableProjectDataOnBuild = "false"
+$env:EnableProjectDataInProjectFolder = "false"
+
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $solution = Join-Path $repoRoot "build\AssemblingManager.sln"
 $artifactsDir = Join-Path $repoRoot "artifacts"
