@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Windows.Media.Imaging;
 using Autodesk.Revit.UI;
 using AssemblingManager.Core.Common;
+using AssemblingManager.Revit.Commands;
 
 namespace AssemblingManager.Revit
 {
@@ -123,6 +124,17 @@ namespace AssemblingManager.Revit
                 pipeAxesButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.PipeAxes32.png");
                 pipeAxesButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.PipeAxes16.png");
 
+                PushButtonData checkElevationsButtonData = new PushButtonData(
+                    "CheckElevations",
+                    "Проверка\nотметок",
+                    assemblyPath,
+                    "AssemblingManager.Revit.Commands.CheckElevationsCommand");
+
+                PushButton checkElevationsButton = draftingPanel.AddItem(checkElevationsButtonData) as PushButton;
+                checkElevationsButton.ToolTip = "Проверить комплект листов: найти листы, ни на одном виде которых нет высотных отметок.";
+                checkElevationsButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.CheckElevations32.png");
+                checkElevationsButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.CheckElevations16.png");
+
                 PushButtonData sortamentsButtonData = new PushButtonData(
                     "Sortaments",
                     "Сортаменты",
@@ -145,6 +157,7 @@ namespace AssemblingManager.Revit
 
         public Result OnShutdown(UIControlledApplication application)
         {
+            CheckElevationsCommand.CloseActiveDialog();
             return Result.Succeeded;
         }
 

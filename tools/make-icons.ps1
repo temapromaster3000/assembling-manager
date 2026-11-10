@@ -210,6 +210,46 @@ function Draw-PipeAxes([System.Drawing.Graphics]$g) {
     $g.DrawEllipse($outline, 10.5, 10.5, 11, 11)
 }
 
+# --- Проверка отметок: лист с высотной отметкой и галочкой ---
+function Draw-CheckElevations([System.Drawing.Graphics]$g, [int]$size) {
+    $white = New-Brush $script:White
+    $blue = New-Brush $script:Blue
+    $grayPen = New-Pen $script:DarkGray 1.5
+    $darkPen = New-Pen $script:DarkBlue 1.8
+    $checkPen = New-Pen $script:Blue 2.8
+
+    if ($size -le 16) {
+        $g.FillRectangle($white, 1.5, 1, 13, 14)
+        $g.DrawRectangle($grayPen, 1.5, 1, 13, 14)
+        $g.FillRectangle($blue, 2.5, 2, 11, 2.5)
+
+        $check = New-Object 'System.Drawing.PointF[]' 3
+        $check[0] = New-Object System.Drawing.PointF(4.5, 9)
+        $check[1] = New-Object System.Drawing.PointF(7, 11.5)
+        $check[2] = New-Object System.Drawing.PointF(12.5, 6.5)
+        $g.DrawLines($checkPen, $check)
+        return
+    }
+
+    $g.FillRectangle($white, 4, 3, 24, 26)
+    $g.DrawRectangle($grayPen, 4, 3, 24, 26)
+    $g.FillRectangle($blue, 5, 4, 22, 4)
+
+    # Высотная отметка: короткая выноска, треугольник и уровень.
+    $g.DrawLine($darkPen, 12.5, 9.5, 12.5, 12)
+    Fill-Polygon $g $script:LightBlue @(@(9.5, 12), @(15.5, 12), @(12.5, 17))
+    $g.DrawLine($darkPen, 9.5, 12, 15.5, 12)
+    $g.DrawLine($darkPen, 9.5, 12, 12.5, 17)
+    $g.DrawLine($darkPen, 15.5, 12, 12.5, 17)
+    $g.DrawLine($darkPen, 6.5, 18.5, 18, 18.5)
+
+    $check = New-Object 'System.Drawing.PointF[]' 3
+    $check[0] = New-Object System.Drawing.PointF(18.5, 22.5)
+    $check[1] = New-Object System.Drawing.PointF(21.5, 25.5)
+    $check[2] = New-Object System.Drawing.PointF(28, 16.5)
+    $g.DrawLines($checkPen, $check)
+}
+
 function Draw-Sortaments([System.Drawing.Graphics]$g) {
     $white = New-Brush $script:White
     $light = New-Brush $script:LightBlue
@@ -251,6 +291,7 @@ function New-Icon([string]$kind, [int]$size) {
             'AddExisting' { Draw-AddExisting $g $size }
             'PipeAxes'    { Draw-PipeAxes $g }
             'Sortaments'  { Draw-Sortaments $g }
+            'CheckElevations' { Draw-CheckElevations $g $size }
             default       { throw "Unknown icon kind: $kind" }
         }
     }
@@ -261,7 +302,7 @@ function New-Icon([string]$kind, [int]$size) {
 }
 
 # --- Генерация ---
-$kinds = @('Settings', 'CreateViews', 'Rename', 'PlaceSheets', 'SortSheets', 'Positions', 'AddExisting', 'PipeAxes', 'Sortaments')
+$kinds = @('Settings', 'CreateViews', 'Rename', 'PlaceSheets', 'SortSheets', 'Positions', 'AddExisting', 'PipeAxes', 'Sortaments', 'CheckElevations')
 $sizes = @(16, 32)
 
 if (-not (Test-Path -LiteralPath $OutputDir)) {
