@@ -66,6 +66,34 @@
                 Visibility="Collapsed"
                 Click="DownloadButton_Click" />
 
+        <Separator Margin="0,16,0,12" />
+
+        <TextBlock Text="Управление из чата (MCP)"
+                   FontWeight="Bold" />
+
+        <CheckBox x:Name="McpEnabledCheckBox"
+                  Content="Включить локальный мост"
+                  Margin="0,8,0,0"
+                  Checked="McpSetting_Changed"
+                  Unchecked="McpSetting_Changed" />
+
+        <CheckBox x:Name="McpWriteCheckBox"
+                  Content="Разрешить изменение модели из чата"
+                  Margin="0,6,0,0"
+                  Checked="McpSetting_Changed"
+                  Unchecked="McpSetting_Changed" />
+
+        <TextBlock x:Name="McpStatusText"
+                   TextWrapping="Wrap"
+                   Margin="0,8,0,0"
+                   Foreground="#FF555555" />
+
+        <TextBlock Text="Канал доступен только на этом компьютере. Для изменения модели нужно подтверждение в чате."
+                   TextWrapping="Wrap"
+                   Margin="0,4,0,0"
+                   FontSize="11"
+                   Foreground="#FF777777" />
+
         <Button Content="Закрыть"
                 Width="90"
                 Margin="0,18,0,0"

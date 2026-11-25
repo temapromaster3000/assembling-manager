@@ -208,10 +208,14 @@ namespace AssemblingManager.Revit.Services
 
             foreach (SizeSnapshot snapshot in snapshots)
             {
+                int usedPipeCount = pipeUsages.Count(
+                    usage => IsNearlyEqual(usage.NominalDiameter, snapshot.NominalDiameter));
+
                 rows.Add(new SortamentSizeRow
                 {
                     IsExisting = true,
-                    IsUsedByPipes = pipeUsages.Any(usage => IsNearlyEqual(usage.NominalDiameter, snapshot.NominalDiameter)),
+                    IsUsedByPipes = usedPipeCount > 0,
+                    UsedPipeCount = usedPipeCount,
                     NominalDiameter = UnitUtils.ConvertFromInternalUnits(snapshot.NominalDiameter, unitId),
                     OuterDiameter = UnitUtils.ConvertFromInternalUnits(snapshot.OuterDiameter, unitId),
                     WallThickness = UnitUtils.ConvertFromInternalUnits(

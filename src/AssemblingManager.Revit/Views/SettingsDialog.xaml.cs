@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using AssemblingManager.Core.Common;
+using AssemblingManager.Revit.Mcp;
 using AssemblingManager.Revit.Services;
 using AssemblingManager.Revit.Updates;
 
@@ -11,6 +12,7 @@ namespace AssemblingManager.Revit.Views
         private readonly int _revitYear;
         private readonly UpdateService _updateService = new UpdateService();
         private ReleaseInfo _pendingRelease;
+        private bool _suppressMcpChanges;
 
         public SettingsDialog(int revitYear)
         {
@@ -23,6 +25,8 @@ namespace AssemblingManager.Revit.Views
                 versionText += "   |   Revit " + revitYear;
             }
             VersionText.Text = versionText;
+
+            InitializeMcpSettings();
         }
 
         private async void CheckButton_Click(object sender, RoutedEventArgs e)
@@ -105,6 +109,96 @@ namespace AssemblingManager.Revit.Views
                 DownloadProgress.Visibility = Visibility.Collapsed;
                 CheckButton.IsEnabled = true;
                 DownloadButton.IsEnabled = true;
+            }
+        }
+
+        private void InitializeMcpSettings()
+        {
+            McpBridgeService bridge = App.McpBridge;
+            if (bridge == null)
+            {
+                McpEnabledCheckBox.IsEnabled = false;
+                McpWriteCheckBox.IsEnabled = false;
+                McpStatusText.Text = "MCP-мост не инициализирован.";
+                return;
+            }
+
+            _suppressMcpChanges = true;
+            try
+            {
+                McpEnabledCheckBox.IsChecked = bridge.Settings.Enabled;
+                McpWriteCheckBox.IsChecked = bridge.Settings.AllowModelChanges;
+                McpWriteCheckBox.IsEnabled = bridge.Settings.Enabled;
+            }
+            finally
+            {
+                _suppressMcpChanges = false;
+            }
+
+            UpdateMcpStatus();
+        }
+
+        private void McpSetting_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_suppressMcpChanges)
+            {
+                return;
+            }
+
+            McpBridgeService bridge = App.McpBridge;
+            if (bridge == null)
+            {
+                UpdateMcpStatus();
+                return;
+            }
+
+            bool enabled = McpEnabledCheckBox.IsChecked == true;
+            bool allowModelChanges = enabled && McpWriteCheckBox.IsChecked == true;
+
+            _suppressMcpChanges = true;
+            try
+            {
+                McpWriteCheckBox.IsEnabled = enabled;
+                if (!allowModelChanges)
+                {
+                    McpWriteCheckBox.IsChecked = false;
+                }
+            }
+            finally
+            {
+                _suppressMcpChanges = false;
+            }
+
+            bridge.UpdateSettings(enabled, allowModelChanges);
+            UpdateMcpStatus();
+        }
+
+        private void UpdateMcpStatus()
+        {
+            McpBridgeService bridge = App.McpBridge;
+            if (bridge == null)
+            {
+                McpEnabledCheckBox.IsEnabled = false;
+                McpWriteCheckBox.IsEnabled = false;
+                McpStatusText.Text = "MCP-мост не инициализирован.";
+                return;
+            }
+
+            if (bridge.IsRunning)
+            {
+                string access = bridge.Settings.AllowModelChanges
+                    ? "изменения модели разрешены"
+                    : "только чтение";
+                McpStatusText.Text =
+                    "Мост: работает (" + access + ").\n" +
+                    "Канал: " + bridge.PipeName;
+            }
+            else
+            {
+                string error = string.IsNullOrWhiteSpace(bridge.LastError)
+                    ? string.Empty
+                    : "\nОшибка: " + bridge.LastError;
+                McpStatusText.Text = "Мост: выключен." + error;
             }
         }
     }

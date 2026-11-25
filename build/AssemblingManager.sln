@@ -1,4 +1,4 @@
-
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -8,6 +8,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AssemblingManager.Revit", "..\src\AssemblingManager.Revit\AssemblingManager.Revit.csproj", "{B2C3D4E5-F6A7-8901-BCDE-F23456789012}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AssemblingManager.Updater", "..\src\AssemblingManager.Updater\AssemblingManager.Updater.csproj", "{C3D4E5F6-A7B8-4901-BCDE-F23456789012}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AssemblingManager.McpServer", "..\src\AssemblingManager.McpServer\AssemblingManager.McpServer.csproj", "{7CEF49DD-CA16-4094-9086-E0A06B243648}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -97,5 +99,17 @@ Global
 		{C3D4E5F6-A7B8-4901-BCDE-F23456789012}.Release.R24|Any CPU.Build.0 = Release|Any CPU
 		{C3D4E5F6-A7B8-4901-BCDE-F23456789012}.Release.R25|Any CPU.ActiveCfg = Release|Any CPU
 		{C3D4E5F6-A7B8-4901-BCDE-F23456789012}.Release.R25|Any CPU.Build.0 = Release|Any CPU
+		{7CEF49DD-CA16-4094-9086-E0A06B243648}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7CEF49DD-CA16-4094-9086-E0A06B243648}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7CEF49DD-CA16-4094-9086-E0A06B243648}.Debug.R21|Any CPU.ActiveCfg = Debug.R21|Any CPU
+		{7CEF49DD-CA16-4094-9086-E0A06B243648}.Debug.R22|Any CPU.ActiveCfg = Debug.R22|Any CPU
+		{7CEF49DD-CA16-4094-9086-E0A06B243648}.Debug.R23|Any CPU.ActiveCfg = Debug.R23|Any CPU
+		{7CEF49DD-CA16-4094-9086-E0A06B243648}.Debug.R24|Any CPU.ActiveCfg = Debug.R24|Any CPU
+		{7CEF49DD-CA16-4094-9086-E0A06B243648}.Debug.R25|Any CPU.ActiveCfg = Debug.R25|Any CPU
+		{7CEF49DD-CA16-4094-9086-E0A06B243648}.Release.R21|Any CPU.ActiveCfg = Release.R21|Any CPU
+		{7CEF49DD-CA16-4094-9086-E0A06B243648}.Release.R22|Any CPU.ActiveCfg = Release.R22|Any CPU
+		{7CEF49DD-CA16-4094-9086-E0A06B243648}.Release.R23|Any CPU.ActiveCfg = Release.R23|Any CPU
+		{7CEF49DD-CA16-4094-9086-E0A06B243648}.Release.R24|Any CPU.ActiveCfg = Release.R24|Any CPU
+		{7CEF49DD-CA16-4094-9086-E0A06B243648}.Release.R25|Any CPU.ActiveCfg = Release.R25|Any CPU
 	EndGlobalSection
 EndGlobal

@@ -5,11 +5,15 @@ using System.Windows.Media.Imaging;
 using Autodesk.Revit.UI;
 using AssemblingManager.Core.Common;
 using AssemblingManager.Revit.Commands;
+using AssemblingManager.Revit.Mcp;
+using AssemblingManager.Revit.Services;
 
 namespace AssemblingManager.Revit
 {
     public class App : IExternalApplication
     {
+        internal static McpBridgeService McpBridge { get; private set; }
+
         public Result OnStartup(UIControlledApplication application)
         {
             try
@@ -146,6 +150,16 @@ namespace AssemblingManager.Revit
                 sortamentsButton.LargeImage = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Sortaments32.png");
                 sortamentsButton.Image = LoadEmbeddedImage("AssemblingManager.Revit.Resources.Sortaments16.png");
 
+                try
+                {
+                    McpBridge = new McpBridgeService(application.ControlledApplication.VersionNumber);
+                    McpBridge.StartIfEnabled();
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("[MCP] Bridge initialization failed: " + ex);
+                }
+
                 return Result.Succeeded;
             }
             catch (Exception ex)
@@ -158,6 +172,17 @@ namespace AssemblingManager.Revit
         public Result OnShutdown(UIControlledApplication application)
         {
             CheckElevationsCommand.CloseActiveDialog();
+
+            try
+            {
+                McpBridge?.Dispose();
+                McpBridge = null;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("[MCP] Bridge shutdown failed: " + ex);
+            }
+
             return Result.Succeeded;
         }
 

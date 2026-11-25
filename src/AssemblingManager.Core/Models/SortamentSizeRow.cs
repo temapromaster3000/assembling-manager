@@ -63,6 +63,8 @@ namespace AssemblingManager.Core.Models
             set => Set(ref _isUsedByPipes, value);
         }
 
+        public int UsedPipeCount { get; set; }
+
         public bool UsedInSizeLists
         {
             get => _usedInSizeLists;
@@ -86,6 +88,7 @@ namespace AssemblingManager.Core.Models
                 WallThickness = WallThickness,
                 IsExisting = IsExisting,
                 IsUsedByPipes = IsUsedByPipes,
+                UsedPipeCount = UsedPipeCount,
                 UsedInSizeLists = UsedInSizeLists,
                 UsedInSizing = UsedInSizing
             };
