@@ -131,4 +131,99 @@ namespace AssemblingManager.Revit.Mcp
         public int? SegmentId { get; set; }
         public string SegmentName { get; set; }
     }
+
+    internal sealed class McpPreviewPipeSizeChangeArgs
+    {
+        public McpPreviewPipeSizeChangeArgs()
+        {
+        }
+
+        public string Operation { get; set; }
+        public int? SegmentId { get; set; }
+        public string SegmentName { get; set; }
+        public double? NominalDiameter { get; set; }
+        public double? OuterDiameter { get; set; }
+        public double? WallThickness { get; set; }
+        public bool? UsedInSizeLists { get; set; }
+        public bool? UsedInSizing { get; set; }
+    }
+
+    internal sealed class McpApplyPipeSizeChangeArgs
+    {
+        public McpApplyPipeSizeChangeArgs()
+        {
+        }
+
+        public string PreviewId { get; set; }
+    }
+
+    internal sealed class McpPreviewChangeResult
+    {
+        public string PreviewId { get; set; }
+        public DateTime? ExpiresUtc { get; set; }
+        public bool CanApply { get; set; }
+        public bool WriteEnabled { get; set; }
+        public string Operation { get; set; }
+        public McpSegmentInfo Segment { get; set; }
+        public string UnitName { get; set; }
+        public double NominalDiameter { get; set; }
+        public bool HasChanges { get; set; }
+        public int UsedPipeCount { get; set; }
+        public int RoutingPreferenceRuleCount { get; set; }
+        public int AddedSizeCount { get; set; }
+        public int UpdatedSizeCount { get; set; }
+        public int RemovedSizeCount { get; set; }
+        public string CatalogHash { get; set; }
+        public List<McpSizeChangeInfo> Changes { get; set; } = new List<McpSizeChangeInfo>();
+        public List<McpSegmentSizeInfo> ProposedSizes { get; set; } = new List<McpSegmentSizeInfo>();
+        public List<McpWorksharingBlockerInfo> Blockers { get; set; } = new List<McpWorksharingBlockerInfo>();
+        public List<string> Warnings { get; set; } = new List<string>();
+        public string Message { get; set; }
+    }
+
+    internal sealed class McpSizeChangeInfo
+    {
+        public string Operation { get; set; }
+        public double NominalDiameter { get; set; }
+        public double OuterDiameter { get; set; }
+        public double WallThickness { get; set; }
+        public double InnerDiameter { get; set; }
+        public bool UsedInSizeLists { get; set; }
+        public bool UsedInSizing { get; set; }
+        public bool UsedByPipes { get; set; }
+        public int UsedPipeCount { get; set; }
+        public double? PreviousOuterDiameter { get; set; }
+        public double? PreviousWallThickness { get; set; }
+        public bool? PreviousUsedInSizeLists { get; set; }
+        public bool? PreviousUsedInSizing { get; set; }
+    }
+
+    internal sealed class McpWorksharingBlockerInfo
+    {
+        public int ElementId { get; set; }
+        public string Kind { get; set; }
+        public string Name { get; set; }
+        public string Owner { get; set; }
+        public string Reason { get; set; }
+    }
+
+    internal sealed class McpApplyChangeResult
+    {
+        public string PreviewId { get; set; }
+        public bool NoChanges { get; set; }
+        public McpSegmentInfo Segment { get; set; }
+        public int FinalSegmentId { get; set; }
+        public string FinalSegmentName { get; set; }
+        public int AddedSizeCount { get; set; }
+        public int UpdatedSizeCount { get; set; }
+        public int RemovedSizeCount { get; set; }
+        public int MigratedPipeCount { get; set; }
+        public int UpdatedRoutingPreferenceCount { get; set; }
+        public bool UsedReplacement { get; set; }
+        public bool OldSegmentDeleted { get; set; }
+        public long ElapsedMs { get; set; }
+        public List<string> Details { get; set; } = new List<string>();
+        public List<string> Warnings { get; set; } = new List<string>();
+        public string Message { get; set; }
+    }
 }

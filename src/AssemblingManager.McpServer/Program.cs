@@ -13,7 +13,13 @@ internal static class Program
         "Use list_pipe_segments and get_pipe_segment_sizes to inspect pipe catalogs. " +
         "All diameters are in the document pipe size unit; read unitName before interpreting numbers. " +
         "Do not invent segment ids, diameters or wall thicknesses. Ask the user when unsure. " +
-        "This build is read-only: no tool modifies the model.";
+        "To change a catalog, call preview_pipe_size_change first, then always call " +
+        "apply_pipe_size_change with the returned previewId in the same turn when the user asked " +
+        "to make the change. The preview is still mandatory and performs the safety checks; do not " +
+        "apply a preview built for a different request. Do not stop for a separate confirmation " +
+        "unless the user explicitly asks to review the plan first: the client permission prompt is " +
+        "the confirmation. Report the applied result. Writing also requires the write switch in the " +
+        "plugin settings; status reports writeEnabled.";
 
     public static async Task<int> Main(string[] args)
     {

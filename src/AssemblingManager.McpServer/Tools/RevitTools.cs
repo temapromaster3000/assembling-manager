@@ -90,6 +90,66 @@ public sealed class RevitTools
             cancellationToken);
     }
 
+    [McpServerTool]
+    [Description(
+        "Builds a read-only preview of one pipe catalog size change and returns a single-use " +
+        "previewId. operation is add, update or remove; nominalDiameter is the DN key and never " +
+        "changes. For add pass outerDiameter and wallThickness. For update pass outerDiameter, " +
+        "wallThickness, usedInSizeLists or usedInSizing. For remove pass only nominalDiameter. " +
+        "All diameters are in the document pipe size unit (see unitName). A size used by pipes " +
+        "cannot be removed. When the user asked to make the change, call apply_pipe_size_change " +
+        "with the returned previewId in the same turn and report the applied result. The client " +
+        "permission prompt is the confirmation; stop for a separate review only if the user " +
+        "explicitly asked to see the plan first.")]
+    public Task<string> PreviewPipeSizeChange(
+        string operation,
+        double nominalDiameter,
+        int? segmentId = null,
+        string? segmentName = null,
+        double? outerDiameter = null,
+        double? wallThickness = null,
+        bool? usedInSizeLists = null,
+        bool? usedInSizing = null,
+        int? instancePid = null,
+        CancellationToken cancellationToken = default)
+    {
+        return ExecuteAsync(
+            instancePid,
+            "preview_pipe_size_change",
+            new
+            {
+                operation,
+                segmentId,
+                segmentName,
+                nominalDiameter,
+                outerDiameter,
+                wallThickness,
+                usedInSizeLists,
+                usedInSizing
+            },
+            120000,
+            cancellationToken);
+    }
+
+    [McpServerTool]
+    [Description(
+        "Applies exactly the pipe size change previously built by preview_pipe_size_change. " +
+        "Requires the write switch to be enabled in the Assembling Manager plugin settings. " +
+        "The previewId is single-use; an expired or stale preview fails with PREVIEW_EXPIRED or " +
+        "CATALOG_CHANGED and must be previewed again. The whole change is one undo step (Ctrl+Z).")]
+    public Task<string> ApplyPipeSizeChange(
+        string previewId,
+        int? instancePid = null,
+        CancellationToken cancellationToken = default)
+    {
+        return ExecuteAsync(
+            instancePid,
+            "apply_pipe_size_change",
+            new { previewId },
+            300000,
+            cancellationToken);
+    }
+
     private async Task<string> ExecuteAsync(
         int? instancePid,
         string tool,

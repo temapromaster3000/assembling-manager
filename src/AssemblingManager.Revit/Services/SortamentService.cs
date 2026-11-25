@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Plumbing;
 using AssemblingManager.Core.Models;
@@ -233,6 +235,87 @@ namespace AssemblingManager.Revit.Services
             return sortedRows;
         }
 
+        /// <summary>
+        /// Проверяет предлагаемый каталог и строит план изменения без записи в модель.
+        /// Общие проверки для предпросмотра и применения находятся здесь.
+        /// </summary>
+        public SortamentChangePlan PreviewChange(
+            Document doc,
+            int segmentId,
+            IEnumerable<SortamentSizeRow> rows,
+            ForgeTypeId unitId)
+        {
+            if (doc == null)
+            {
+                throw new ArgumentNullException(nameof(doc));
+            }
+
+            if (rows == null)
+            {
+                throw new ArgumentNullException(nameof(rows));
+            }
+
+            PipeSegment originalSegment = GetSegment(doc, segmentId);
+            string originalSegmentName = originalSegment.Name;
+            List<SizeSnapshot> originalSizes = GetSizeSnapshots(originalSegment);
+            List<SizeSnapshot> requestedSizes = BuildRequestedSizes(rows, unitId);
+            List<PipeUsage> pipeUsages = GetPipeUsages(doc, originalSegment.Id);
+            LogInfo(
+                "preview begin segmentId=" + segmentId +
+                " name='" + originalSegmentName + "'" +
+                " originalRows=" + originalSizes.Count +
+                " requestedRows=" + requestedSizes.Count +
+                " pipeCount=" + pipeUsages.Count);
+            LogSizes("preview-original", originalSegment.Id, originalSegmentName, originalSizes, unitId);
+            LogSizes("preview-requested", originalSegment.Id, originalSegmentName, requestedSizes, unitId);
+            LogPipeUsages(pipeUsages, unitId);
+
+            foreach (PipeUsage usage in pipeUsages)
+            {
+                if (FindSize(originalSizes, usage.NominalDiameter) == null)
+                {
+                    throw new InvalidOperationException("Номинальный диаметр трубы не найден в исходном каталоге.");
+                }
+            }
+
+            List<double> usedNominalDiameters = pipeUsages.Select(usage => usage.NominalDiameter).ToList();
+
+            ValidateRequestedSizes(originalSizes, requestedSizes, usedNominalDiameters);
+
+            SortamentChangePlan plan = new SortamentChangePlan
+            {
+                SegmentId = segmentId,
+                SegmentName = originalSegmentName,
+                OriginalSizes = originalSizes,
+                RequestedSizes = requestedSizes,
+                PipeUsages = pipeUsages,
+                UsedPipeCount = pipeUsages.Count,
+                CatalogHash = ComputeCatalogHash(originalSegment)
+            };
+
+            plan.HasChanges = HasChanges(originalSizes, requestedSizes);
+            plan.RequiresReplacement = plan.HasChanges && RequiresReplacement(originalSizes, requestedSizes);
+            plan.RoutingPreferenceRuleCount = CountRoutingPreferenceRules(doc, originalSegment.Id);
+            if (plan.RoutingPreferenceRuleCount == 0)
+            {
+                plan.Warnings.Add("Не найдено Routing Preferences, ссылающихся на исходный PipeSegment.");
+            }
+
+            BuildChangeItems(plan, originalSizes, requestedSizes, pipeUsages, unitId);
+            plan.Blockers.AddRange(GetWorksharingBlockers(doc, originalSegment, pipeUsages));
+
+            LogInfo(
+                "preview result segmentId=" + segmentId +
+                " hasChanges=" + plan.HasChanges +
+                " requiresReplacement=" + plan.RequiresReplacement +
+                " added=" + plan.AddedSizeCount +
+                " updated=" + plan.UpdatedSizeCount +
+                " removed=" + plan.RemovedSizeCount +
+                " routingRules=" + plan.RoutingPreferenceRuleCount +
+                " blockers=" + plan.Blockers.Count);
+            return plan;
+        }
+
         public SortamentResult Apply(
             Document doc,
             int segmentId,
@@ -255,69 +338,43 @@ namespace AssemblingManager.Revit.Services
                 throw new ArgumentNullException(nameof(result));
             }
 
-            PipeSegment originalSegment = GetSegment(doc, segmentId);
-            string originalSegmentName = originalSegment.Name;
-            List<SizeSnapshot> originalSizes = GetSizeSnapshots(originalSegment);
-            List<SizeSnapshot> requestedSizes = BuildRequestedSizes(rows, unitId);
-            List<PipeUsage> pipeUsages = GetPipeUsages(doc, originalSegment.Id);
-            LogInfo(
-                "apply begin segmentId=" + segmentId +
-                " name='" + originalSegmentName + "'" +
-                " originalRows=" + originalSizes.Count +
-                " requestedRows=" + requestedSizes.Count +
-                " pipeCount=" + pipeUsages.Count);
-            LogSizes("apply-original", originalSegment.Id, originalSegmentName, originalSizes, unitId);
-            LogSizes("apply-requested", originalSegment.Id, originalSegmentName, requestedSizes, unitId);
-            LogPipeUsages(pipeUsages, unitId);
-
-            foreach (PipeUsage usage in pipeUsages)
-            {
-                if (FindSize(originalSizes, usage.NominalDiameter) == null)
-                {
-                    throw new InvalidOperationException("Номинальный диаметр трубы не найден в исходном каталоге.");
-                }
-            }
-
-            List<double> usedNominalDiameters = pipeUsages.Select(usage => usage.NominalDiameter).ToList();
-
-            ValidateRequestedSizes(originalSizes, requestedSizes, usedNominalDiameters);
-
-            bool hasChanges = HasChanges(originalSizes, requestedSizes);
-            if (!hasChanges)
+            SortamentChangePlan plan = PreviewChange(doc, segmentId, rows, unitId);
+            if (!plan.HasChanges)
             {
                 LogInfo("apply strategy=noop");
                 result.OriginalSegmentId = segmentId;
                 result.FinalSegmentId = segmentId;
-                result.OriginalSegmentName = originalSegmentName;
-                result.FinalSegmentName = originalSegmentName;
+                result.OriginalSegmentName = plan.SegmentName;
+                result.FinalSegmentName = plan.SegmentName;
                 result.Details.Add("Изменений не обнаружено.");
                 return result;
             }
 
-            bool requiresReplacement = RequiresReplacement(originalSizes, requestedSizes);
-            if (!requiresReplacement)
+            if (!plan.RequiresReplacement)
             {
                 throw new InvalidOperationException("Изменения каталога не требуют замены сегмента.");
             }
 
             LogInfo("apply strategy=replacement");
-            ApplyReplacement(doc, originalSegment, requestedSizes, pipeUsages, unitId, result);
+            PipeSegment originalSegment = GetSegment(doc, segmentId);
+            ApplyReplacement(doc, originalSegment, plan, unitId, result);
 
             result.OriginalSegmentId = segmentId;
-            result.OriginalSegmentName = originalSegmentName;
+            result.OriginalSegmentName = plan.SegmentName;
             return result;
         }
 
         private void ApplyReplacement(
             Document doc,
             PipeSegment originalSegment,
-            List<SizeSnapshot> requestedSizes,
-            List<PipeUsage> pipeUsages,
+            SortamentChangePlan plan,
             ForgeTypeId unitId,
             SortamentResult result)
         {
             string originalSegmentName = originalSegment.Name;
-            List<SizeSnapshot> originalSizes = GetSizeSnapshots(originalSegment);
+            List<SizeSnapshot> originalSizes = plan.OriginalSizes;
+            List<SizeSnapshot> requestedSizes = plan.RequestedSizes;
+            List<PipeUsage> pipeUsages = plan.PipeUsages;
             List<SizeSnapshot> removed = originalSizes
                 .Where(original => FindSize(requestedSizes, original.NominalDiameter) == null)
                 .ToList();
@@ -930,19 +987,11 @@ namespace AssemblingManager.Revit.Services
                     continue;
                 }
 
-                List<int> indexes = new List<int>();
                 int ruleCount = manager.GetNumberOfRules(RoutingPreferenceRuleGroupType.Segments);
+                List<int> indexes = GetRoutingRuleIndexes(manager, originalSegmentId);
                 LogDebug(
                     "routing pipeType id=" + GetIdText(pipeType.Id) +
                     " name='" + pipeType.Name + "' rules=" + ruleCount);
-                for (int i = 0; i < ruleCount; i++)
-                {
-                    RoutingPreferenceRule rule = manager.GetRule(RoutingPreferenceRuleGroupType.Segments, i);
-                    if (rule != null && rule.MEPPartId == originalSegmentId)
-                    {
-                        indexes.Add(i);
-                    }
-                }
 
                 for (int i = indexes.Count - 1; i >= 0; i--)
                 {
@@ -1007,6 +1056,317 @@ namespace AssemblingManager.Revit.Services
             LogInfo("delete segment completed id=" + GetIdText(segmentId) + " deletedCount=" + (deletedIds?.Count ?? 0));
             result.OldSegmentDeleted = true;
             result.Details.Add("Удалено элементов: " + (deletedIds?.Count ?? 0) + ".");
+        }
+
+        public string GetCatalogHash(Document doc, int segmentId)
+        {
+            if (doc == null)
+            {
+                throw new ArgumentNullException(nameof(doc));
+            }
+
+            return ComputeCatalogHash(GetSegment(doc, segmentId));
+        }
+
+        /// <summary>
+        /// Элементы, которые будут изменены при замене сегмента: сам сегмент, его трубы
+        /// и PipeType с правилами Routing Preferences, ссылающимися на сегмент.
+        /// </summary>
+        public List<ElementId> GetAffectedElementIds(Document doc, int segmentId)
+        {
+            if (doc == null)
+            {
+                throw new ArgumentNullException(nameof(doc));
+            }
+
+            PipeSegment segment = GetSegment(doc, segmentId);
+            List<ElementId> result = new List<ElementId> { segment.Id };
+            HashSet<int> seen = new HashSet<int> { GetIdValue(segment.Id) };
+
+            foreach (PipeUsage usage in GetPipeUsages(doc, segment.Id))
+            {
+                if (seen.Add(GetIdValue(usage.PipeId)))
+                {
+                    result.Add(usage.PipeId);
+                }
+            }
+
+            foreach (PipeType pipeType in new FilteredElementCollector(doc)
+                         .OfClass(typeof(PipeType))
+                         .Cast<PipeType>())
+            {
+                RoutingPreferenceManager manager = pipeType.RoutingPreferenceManager;
+                if (manager == null || !manager.IsValidObject)
+                {
+                    continue;
+                }
+
+                if (GetRoutingRuleIndexes(manager, segment.Id).Count > 0 &&
+                    seen.Add(GetIdValue(pipeType.Id)))
+                {
+                    result.Add(pipeType.Id);
+                }
+            }
+
+            return result;
+        }
+
+        private string ComputeCatalogHash(PipeSegment segment)
+        {
+            StringBuilder builder = new StringBuilder();
+            builder.Append("pipe-segment-v1|");
+            builder.Append(GetIdValue(segment.Id).ToString(CultureInfo.InvariantCulture)).Append('|');
+            builder.Append(segment.Name ?? string.Empty).Append('|');
+            builder.Append(GetIdText(segment.MaterialId)).Append('|');
+            builder.Append(GetIdText(segment.ScheduleTypeId)).Append('|');
+            builder.Append(FormatNumber(segment.Roughness)).Append('|');
+            builder.Append(segment.Description ?? string.Empty).Append('|');
+
+            foreach (SizeSnapshot size in GetSizeSnapshots(segment).OrderBy(item => item.NominalDiameter))
+            {
+                builder
+                    .Append(FormatNumber(size.NominalDiameter)).Append(':')
+                    .Append(FormatNumber(size.OuterDiameter)).Append(':')
+                    .Append(FormatNumber(size.InnerDiameter)).Append(':')
+                    .Append(size.UsedInSizeLists ? '1' : '0')
+                    .Append(size.UsedInSizing ? '1' : '0')
+                    .Append(';');
+            }
+
+            using (SHA256 sha = SHA256.Create())
+            {
+                byte[] hash = sha.ComputeHash(Encoding.UTF8.GetBytes(builder.ToString()));
+                StringBuilder result = new StringBuilder(hash.Length * 2);
+                foreach (byte value in hash)
+                {
+                    result.Append(value.ToString("x2", CultureInfo.InvariantCulture));
+                }
+
+                return result.ToString();
+            }
+        }
+
+        private void BuildChangeItems(
+            SortamentChangePlan plan,
+            List<SizeSnapshot> originalSizes,
+            List<SizeSnapshot> requestedSizes,
+            List<PipeUsage> pipeUsages,
+            ForgeTypeId unitId)
+        {
+            foreach (SizeSnapshot original in originalSizes.OrderBy(size => size.NominalDiameter))
+            {
+                SizeSnapshot requested = FindSize(requestedSizes, original.NominalDiameter);
+                if (requested == null)
+                {
+                    plan.Changes.Add(ToSizeChange("remove", original, pipeUsages, unitId));
+                    plan.RemovedSizeCount++;
+                    continue;
+                }
+
+                if (!IsSameSize(original, requested))
+                {
+                    SortamentSizeChange change = ToSizeChange("update", requested, pipeUsages, unitId);
+                    change.PreviousOuterDiameter = UnitUtils.ConvertFromInternalUnits(original.OuterDiameter, unitId);
+                    change.PreviousWallThickness = UnitUtils.ConvertFromInternalUnits(original.WallThickness, unitId);
+                    change.PreviousUsedInSizeLists = original.UsedInSizeLists;
+                    change.PreviousUsedInSizing = original.UsedInSizing;
+                    plan.Changes.Add(change);
+                    plan.UpdatedSizeCount++;
+                }
+            }
+
+            foreach (SizeSnapshot requested in requestedSizes.OrderBy(size => size.NominalDiameter))
+            {
+                if (FindSize(originalSizes, requested.NominalDiameter) == null)
+                {
+                    plan.Changes.Add(ToSizeChange("add", requested, pipeUsages, unitId));
+                    plan.AddedSizeCount++;
+                }
+            }
+
+            plan.Changes = plan.Changes.OrderBy(change => change.NominalDiameter).ToList();
+            plan.ProposedSizes = requestedSizes
+                .OrderBy(size => size.NominalDiameter)
+                .Select(size => ToSizeChange(null, size, pipeUsages, unitId))
+                .ToList();
+        }
+
+        private static SortamentSizeChange ToSizeChange(
+            string operation,
+            SizeSnapshot size,
+            List<PipeUsage> pipeUsages,
+            ForgeTypeId unitId)
+        {
+            int usedPipeCount = pipeUsages.Count(
+                usage => IsNearlyEqual(usage.NominalDiameter, size.NominalDiameter));
+
+            return new SortamentSizeChange
+            {
+                Operation = operation,
+                NominalDiameter = UnitUtils.ConvertFromInternalUnits(size.NominalDiameter, unitId),
+                OuterDiameter = UnitUtils.ConvertFromInternalUnits(size.OuterDiameter, unitId),
+                WallThickness = UnitUtils.ConvertFromInternalUnits(size.WallThickness, unitId),
+                InnerDiameter = UnitUtils.ConvertFromInternalUnits(size.InnerDiameter, unitId),
+                UsedInSizeLists = size.UsedInSizeLists,
+                UsedInSizing = size.UsedInSizing,
+                UsedByPipes = usedPipeCount > 0,
+                UsedPipeCount = usedPipeCount
+            };
+        }
+
+        private int CountRoutingPreferenceRules(Document doc, ElementId segmentId)
+        {
+            int count = 0;
+            foreach (PipeType pipeType in new FilteredElementCollector(doc)
+                         .OfClass(typeof(PipeType))
+                         .Cast<PipeType>())
+            {
+                RoutingPreferenceManager manager = pipeType.RoutingPreferenceManager;
+                if (manager == null || !manager.IsValidObject)
+                {
+                    continue;
+                }
+
+                count += GetRoutingRuleIndexes(manager, segmentId).Count;
+            }
+
+            return count;
+        }
+
+        private static List<int> GetRoutingRuleIndexes(
+            RoutingPreferenceManager manager,
+            ElementId segmentId)
+        {
+            List<int> indexes = new List<int>();
+            int ruleCount = manager.GetNumberOfRules(RoutingPreferenceRuleGroupType.Segments);
+            for (int i = 0; i < ruleCount; i++)
+            {
+                RoutingPreferenceRule rule = manager.GetRule(RoutingPreferenceRuleGroupType.Segments, i);
+                if (rule != null && rule.MEPPartId == segmentId)
+                {
+                    indexes.Add(i);
+                }
+            }
+
+            return indexes;
+        }
+
+        private List<SortamentWorksharingBlocker> GetWorksharingBlockers(
+            Document doc,
+            PipeSegment segment,
+            List<PipeUsage> pipeUsages)
+        {
+            List<SortamentWorksharingBlocker> blockers = new List<SortamentWorksharingBlocker>();
+            if (!doc.IsWorkshared)
+            {
+                return blockers;
+            }
+
+            HashSet<int> seen = new HashSet<int>();
+            AddWorksharingBlocker(doc, segment.Id, "segment", segment.Name, blockers, seen);
+
+            foreach (PipeUsage usage in pipeUsages)
+            {
+                Pipe pipe = doc.GetElement(usage.PipeId) as Pipe;
+                AddWorksharingBlocker(
+                    doc,
+                    usage.PipeId,
+                    "pipe",
+                    pipe?.Name ?? "Труба",
+                    blockers,
+                    seen);
+            }
+
+            foreach (PipeType pipeType in new FilteredElementCollector(doc)
+                         .OfClass(typeof(PipeType))
+                         .Cast<PipeType>())
+            {
+                RoutingPreferenceManager manager = pipeType.RoutingPreferenceManager;
+                if (manager == null || !manager.IsValidObject)
+                {
+                    continue;
+                }
+
+                if (GetRoutingRuleIndexes(manager, segment.Id).Count > 0)
+                {
+                    AddWorksharingBlocker(doc, pipeType.Id, "pipeType", pipeType.Name, blockers, seen);
+                }
+            }
+
+            if (blockers.Count > 0)
+            {
+                LogWarn("worksharing blockers=" + blockers.Count);
+            }
+
+            return blockers;
+        }
+
+        private void AddWorksharingBlocker(
+            Document doc,
+            ElementId elementId,
+            string kind,
+            string name,
+            List<SortamentWorksharingBlocker> blockers,
+            HashSet<int> seen)
+        {
+            if (elementId == null)
+            {
+                return;
+            }
+
+            int id = GetIdValue(elementId);
+            if (!seen.Add(id))
+            {
+                return;
+            }
+
+            try
+            {
+                string owner;
+                CheckoutStatus status = WorksharingUtils.GetCheckoutStatus(doc, elementId, out owner);
+                if (status == CheckoutStatus.OwnedByOtherUser)
+                {
+                    blockers.Add(new SortamentWorksharingBlocker
+                    {
+                        ElementId = id,
+                        Kind = kind,
+                        Name = name,
+                        Owner = string.IsNullOrWhiteSpace(owner) ? "неизвестно" : owner,
+                        Reason = "занят другим пользователем"
+                    });
+                    return;
+                }
+
+                ModelUpdatesStatus updates = WorksharingUtils.GetModelUpdatesStatus(doc, elementId);
+                if (updates == ModelUpdatesStatus.UpdatedInCentral)
+                {
+                    blockers.Add(new SortamentWorksharingBlocker
+                    {
+                        ElementId = id,
+                        Kind = kind,
+                        Name = name,
+                        Owner = string.IsNullOrWhiteSpace(owner) ? "неизвестно" : owner,
+                        Reason = "изменён в центральной модели (нужен Reload Latest)"
+                    });
+                }
+                else if (updates == ModelUpdatesStatus.DeletedInCentral)
+                {
+                    blockers.Add(new SortamentWorksharingBlocker
+                    {
+                        ElementId = id,
+                        Kind = kind,
+                        Name = name,
+                        Owner = string.IsNullOrWhiteSpace(owner) ? "неизвестно" : owner,
+                        Reason = "удалён в центральной модели"
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                LogDebug(
+                    "worksharing status failed id=" + id +
+                    " kind=" + kind + ": " + ex.Message);
+            }
         }
 
         private void ValidateRequestedSizes(
@@ -1414,20 +1774,5 @@ namespace AssemblingManager.Revit.Services
             }
         }
 
-        private sealed class SizeSnapshot
-        {
-            public double NominalDiameter { get; set; }
-            public double OuterDiameter { get; set; }
-            public double InnerDiameter { get; set; }
-            public double WallThickness { get; set; }
-            public bool UsedInSizeLists { get; set; }
-            public bool UsedInSizing { get; set; }
-        }
-
-        private sealed class PipeUsage
-        {
-            public ElementId PipeId { get; set; }
-            public double NominalDiameter { get; set; }
-        }
     }
 }
