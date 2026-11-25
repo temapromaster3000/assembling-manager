@@ -160,7 +160,7 @@
                                         CellStyle="{StaticResource SortamentReadOnlyCell}">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <TextBox Text="{Binding NominalDiameter, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True, NotifyOnValidationError=True, StringFormat={}{0:0.###}}"
+                            <TextBox Text="{Binding NominalDiameter, Mode=OneWay, StringFormat={}{0:0.###}}"
                                      IsReadOnly="True"
                                      Padding="4,2"
                                      VerticalContentAlignment="Center"
@@ -200,7 +200,7 @@
                                         CellStyle="{StaticResource SortamentReadOnlyCell}">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <TextBox Text="{Binding InnerDiameter, StringFormat={}{0:0.###}}"
+                            <TextBox Text="{Binding InnerDiameter, Mode=OneWay, StringFormat={}{0:0.###}}"
                                      IsReadOnly="True"
                                      Padding="4,2"
                                      VerticalContentAlignment="Center"
