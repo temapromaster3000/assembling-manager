@@ -220,7 +220,7 @@ MCP-сервер отдаёт чату фиксированный набор и�
 Перед записью бот показывает план и спрашивает подтверждение кнопками; запрос
 разрешения opencode остаётся вторым предохранителем. Подробная инструкция, пути
 логов и разбор ошибок — в [`tools/telegram-bot/README.md`](tools/telegram-bot/README.md).
-План и чек-лист — в [`DOCS/in-progress/telegram-integration-plan.md`](DOCS/in-progress/telegram-integration-plan.md).
+План и чек-лист — в [`DOCS/realized/telegram-integration-plan.md`](DOCS/realized/telegram-integration-plan.md).
 
 ## Требования
 

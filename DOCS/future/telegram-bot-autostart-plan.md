@@ -1,7 +1,7 @@
 # Автозапуск Telegram-бота Assembling Manager
 
 Статус: **future**, не начато. Основа — рабочий ручной режим из
-`docs/in-progress/telegram-integration-plan.md`.
+`docs/realized/telegram-integration-plan.md`.
 
 ## Цель
 

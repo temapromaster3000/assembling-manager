@@ -1,7 +1,7 @@
 # MCP-управление сортаментами труб
 
 Статус: **реализовано** 26.11.2026. Основные кейсы и упаковка проверены в Revit 2025.
-Telegram вынесен в отдельный план: `docs/future/telegram-integration-plan.md`.
+Telegram реализован отдельным планом: `docs/realized/telegram-integration-plan.md`.
 
 ## Итог реализации
 
@@ -27,8 +27,8 @@ Telegram вынесен в отдельный план: `docs/future/telegram-in
   полный цикл окна «Сортаменты», read-only и отсутствие документа.
 - Worksharing на проверочной модели не применим (модель не в файл-хранилище);
   отдельная workshared-модель не проверялась.
-- Отдельные future-планы: `docs/future/sortaments-schedule-type-cleanup.md`,
-  `docs/future/telegram-integration-plan.md`.
+- Отдельный future-план: `docs/future/sortaments-schedule-type-cleanup.md`.
+- Telegram-интеграция: `docs/realized/telegram-integration-plan.md`.
 
 ## Цель
 
@@ -184,8 +184,8 @@ Prod services → TransactionGroup → Revit API
 
 ### Этап 6. Telegram (вынесено в отдельный план)
 
-- [x] План реализации: `docs/future/telegram-integration-plan.md`.
-- Реализация ведётся по этому плану и не входит в текущий.
+- [x] План и реализация: `docs/realized/telegram-integration-plan.md`.
+- [x] Реализовано и проверено 26.11.2026.
 
 ## Безопасность
 
