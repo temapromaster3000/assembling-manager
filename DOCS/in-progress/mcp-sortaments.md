@@ -7,13 +7,13 @@
 <!-- CONTINUE-HERE -->
 ## NEXT SESSION — CONTINUE HERE
 
-**Текущий этап:** 5 — упаковка MCP-сервера и опциональные проверки.
-**Последний запушенный коммит:** `9bb6f7b` (main).
+**Текущий этап:** 6 — проверка упаковки и опциональные кейсы.
+**Последний запушенный коммит:** `004f582` (main).
 **Статус:** этапы 0–3 реализованы и проверены; основные кейсы записи пройдены.
-Код и инструкции переведены на режим «предпросмотр + сразу apply». Фича запушена
-коммитами `5c49539` (исправление окна), `fcada77` (MCP preview/apply) и
-`9bb6f7b` (future-планы). Осталось решить упаковку MCP-сервера и добить
-опциональные проверки.
+Фича запушена коммитами `5c49539` (исправление окна), `fcada77` (MCP preview/apply),
+`9bb6f7b` (future-планы) и `004f582` (статус плана). Упаковка MCP-сервера добавлена
+в рабочую копию (build-and-deploy + release + installer), но ещё не проверена
+пользователем и не закоммичена.
 
 **Сделано в этой сессии:**
 
@@ -31,16 +31,20 @@
 - Режим работы: предпросмотр остаётся технически обязательным, но чат применяет изменение
   сразу после просьбы пользователя; подтверждение — запрос разрешения opencode.
 - README и инструкции MCP-сервера обновлены под этот режим.
+- Упаковка: `build-and-deploy.bat` собирает MCP-сервер в `bin\Debug\McpServer` и
+  копирует в `%APPDATA%\AssemblingManager\McpServer`; `release.ps1` публикует его
+  в `artifacts\publish\McpServer`, пакует `AssemblingManager-McpServer.zip` и
+  передаёт инсталлятору.
 
 **Следующие шаги:**
 
-1. Решить, включать ли MCP-сервер в `build-and-deploy.bat` / release (сейчас
-   он собирается отдельной командой и в релиз не входит).
+1. Пользователю: запустить `build-and-deploy.bat`, проверить, что файлы появились
+   в `%APPDATA%\AssemblingManager\McpServer`, и что плагин/MCP работают.
 2. Опциональные проверки: `CATALOG_CHANGED`, полный цикл окна «Сортаменты»,
    read-only, нет документа. Worksharing на модели «Проект1 2025» не проверяется.
 3. Telegram — отдельный future-план `docs/future/telegram-integration-plan.md`.
-4. Когда все пункты закрыты — убрать `CONTINUE-HERE` и перенести план
-   в `docs/realized/`.
+4. Коммит/пуш упаковки — только по разрешению; после этого закрыть оставшиеся
+   пункты и перенести план в `docs/realized/`.
 
 **Ограничения:**
 
@@ -130,7 +134,7 @@ Prod services → TransactionGroup → Revit API
 - `revit_status` видит документ, активный вид и единицы; `revit_list_instances` видит инстанс.
 - `revit_list_pipe_segments` и `revit_get_pipe_segment_sizes` возвращают реальные данные.
 - Проверочная модель: `Проект1 2025`, единицы — миллиметры; запись включается в настройках.
-- На момент проверки: сегмент `570396` «Сталь углеродистая - Электросварная» (11 размеров,
+- На момент проверки: сегмент `570457` «Сталь углеродистая - Электросварная» (11 размеров,
   DN65 = 100 × 3.5, используется 4 трубами); сегмент `570429` «Сталь, нержавеющая AISI 304…»
   (DN65 = 150 × 3.5, используется 4 трубами). Id сегментов меняются при каждой замене.
 - MCP-сервер запущен из `src\AssemblingManager.McpServer\bin\Debug\net8.0` и держит файлы.
@@ -197,6 +201,8 @@ Prod services → TransactionGroup → Revit API
 - [x] Ctrl+Z откатывает всё одним шагом.
 - [x] Запись выключена → preview работает, apply даёт `WRITE_DISABLED`.
 - [x] Модальное окно → `TIMEOUT`.
+- [x] Изменение каталога между preview и apply → `CATALOG_CHANGED`
+  (проверено: preview A, затем apply B, затем apply A).
 - [ ] Файл-хранилище: занятые элементы — на модели `Проект1 2025` не проверяется
   (не workshared).
 - [ ] Нет документа → `NO_DOCUMENT`.
@@ -207,7 +213,11 @@ Prod services → TransactionGroup → Revit API
 
 - [x] README: раздел «Управление из чата (MCP)».
 - [x] `opencode.mcp.example.json`.
-- [ ] Сборка/публикация MCP-сервера в `build-and-deploy.bat` / release.
+- [x] Сборка/публикация MCP-сервера в `build-and-deploy.bat` / release:
+  dev-сборка кладётся в `%APPDATA%\AssemblingManager\McpServer`, релиз — в
+  `artifacts\publish\McpServer` и отдельный `AssemblingManager-McpServer.zip`,
+  инсталлятор ставит сервер в `{app}\McpServer`. Команды сборки, publish и
+  robocopy проверены; полный прогон `build-and-deploy.bat` — за пользователем.
 - [ ] Перемещение плана в `docs/realized` после пуша.
 
 ### Этап 6. Telegram (опционально)
@@ -244,7 +254,7 @@ Prod services → TransactionGroup → Revit API
 - [x] `preview_pipe_size_change` (remove DN90) и apply удаляют размер.
 - [x] remove DN65 отклоняется: размер используется 4 трубами.
 - [x] Повторный apply с тем же `previewId` даёт `PREVIEW_EXPIRED`.
-- [ ] Изменение каталога между preview и apply даёт `CATALOG_CHANGED`.
+- [x] Изменение каталога между preview и apply даёт `CATALOG_CHANGED`.
 - [x] Запись выключена → preview работает, apply даёт `WRITE_DISABLED`.
 - [x] Ctrl+Z откатывает изменение одним шагом: DN90 исчез, DN65 = 100 остался.
 - [x] Модальное окно → вызовы дают `TIMEOUT` (проверено на открытых настройках).
@@ -263,10 +273,13 @@ src\AssemblingManager.McpServer\bin\Debug\net8.0\AssemblingManager.McpServer.exe
 Лог плагина: `%APPDATA%\Autodesk\Revit\Addins\AssemblingManager\Logs\assembling-manager-*.log`
 (искать строки `[MCP]`).
 
-Сборка MCP-сервера вынесена из `build\AssemblingManager.sln` (у проекта нет `Build.0`),
-чтобы `build-and-deploy.bat` не пытался перезаписать запущенный exe. MCP-сервер собирается
-отдельной командой. Если exe запущен, перед пересборкой закройте opencode или отключите
-MCP-сервер в конфиге.
+MCP-сервер по-прежнему не входит в `build\AssemblingManager.sln` (у проекта нет `Build.0`),
+поэтому `build-and-deploy.bat` собирает его отдельным шагом в `bin\Debug\McpServer` и
+копирует в `%APPDATA%\AssemblingManager\McpServer` через `robocopy`. Если сервер запущен
+из этой папки, `robocopy` вернёт ошибку блокировки и скрипт выведет предупреждение:
+закройте opencode и повторите. Релизный скрипт публикует сервер в
+`artifacts\publish\McpServer`, пакует `AssemblingManager-McpServer.zip` и передаёт папку
+инсталлятору (`{app}\McpServer`).
 
 ## Открытые решения
 

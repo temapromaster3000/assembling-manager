@@ -49,6 +49,8 @@ Source: "..\..\artifacts\publish\AssemblingManager-R25\*"; DestDir: "{app}\2025"
 ; --- Updater (net48, общий) ---
 Source: "..\..\artifacts\publish\Updater\AssemblingManager.Updater.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\artifacts\publish\Updater\AssemblingManager.Updater.pdb"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+; --- MCP server (net8, общий) ---
+Source: "..\..\artifacts\publish\McpServer\*"; DestDir: "{app}\McpServer"; Flags: ignoreversion recursesubdirs
 
 [Code]
 var

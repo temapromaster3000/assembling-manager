@@ -15,6 +15,8 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $solution = Join-Path $repoRoot "build\AssemblingManager.sln"
 $artifactsDir = Join-Path $repoRoot "artifacts"
 $publishDir = Join-Path $artifactsDir "publish"
+$mcpProject = Join-Path $repoRoot "src\AssemblingManager.McpServer\AssemblingManager.McpServer.csproj"
+$mcpPublishDir = Join-Path $publishDir "McpServer"
 
 function Assert-LastExitCode([string]$message) {
     if ($LASTEXITCODE -ne 0) {
@@ -99,6 +101,15 @@ if (-not (Test-Path (Join-Path $updaterSource "AssemblingManager.Updater.exe")))
 New-Item -ItemType Directory -Path (Join-Path $publishDir "Updater") | Out-Null
 Copy-Item (Join-Path $updaterSource "*") (Join-Path $publishDir "Updater") -Recurse -Force
 
+Write-Host "      Publishing MCP server..."
+dotnet publish $mcpProject -c Release -o $mcpPublishDir --verbosity quiet
+Assert-LastExitCode "Publish failed: MCP server (Release)"
+if (-not (Test-Path (Join-Path $mcpPublishDir "AssemblingManager.McpServer.exe"))) {
+    throw "MCP server publish output not found: $mcpPublishDir"
+}
+Compress-Archive -Path (Join-Path $mcpPublishDir "*") -DestinationPath (Join-Path $artifactsDir "AssemblingManager-McpServer.zip") -Force
+Write-Host "      Packed AssemblingManager-McpServer.zip"
+
 Write-Host "      Building installer with ISCC..."
 & $iscc "/DAppVersion=$version" (Join-Path $PSScriptRoot "installer\AssemblingManager-Setup.iss") | Out-Null
 Assert-LastExitCode "Installer compilation failed."
@@ -136,6 +147,7 @@ $assets = @(
     (Join-Path $artifactsDir "AssemblingManager-R23.zip"),
     (Join-Path $artifactsDir "AssemblingManager-R24.zip"),
     (Join-Path $artifactsDir "AssemblingManager-R25.zip"),
+    (Join-Path $artifactsDir "AssemblingManager-McpServer.zip"),
     $setupExe
 )
 

@@ -179,22 +179,21 @@ MCP-сервер отдаёт чату фиксированный набор и�
 
 ### Быстрый старт
 
-1. Соберите MCP-сервер:
+1. Соберите и разверните плагин обычным способом (`build-and-deploy.bat`).
+   Скрипт также собирает MCP-сервер и кладёт его в
+   `%APPDATA%\AssemblingManager\McpServer\`.
 
-   ```powershell
-   dotnet build src\AssemblingManager.McpServer\AssemblingManager.McpServer.csproj -c Debug
-   ```
-
-2. Соберите и разверните плагин обычным способом (`build-and-deploy.bat`).
-
-3. В Revit откройте **Assembling Manager → Настройки** и включите **«Включить локальный мост»**.
+2. В Revit откройте **Assembling Manager → Настройки** и включите **«Включить локальный мост»**.
    Для изменения сортаментов также включите **«Разрешить изменение модели из чата»**.
 
-4. Добавьте сервер в `opencode.json` по образцу
+3. Добавьте сервер в `opencode.json` по образцу
    [`opencode.mcp.example.json`](opencode.mcp.example.json) и перезапустите opencode.
+   В образце указан путь из репозитория; после установки/`build-and-deploy.bat` используйте
+   `<APPDATA>\AssemblingManager\McpServer\AssemblingManager.McpServer.exe`
+   (например, `C:\Users\ИМЯ\AppData\Roaming\AssemblingManager\McpServer\...`).
    В образце уже есть правило `permissions`: `revit_apply_pipe_size_change` → `ask`.
 
-5. В чате попросите: «Покажи сортаменты труб», «Покажи размеры сегмента …» или
+4. В чате попросите: «Покажи сортаменты труб», «Покажи размеры сегмента …» или
    «Добавь в сегмент … размер DN90 со стенкой 4 мм». Чат проверит план, применит
    изменение и покажет результат; перед `apply` opencode спросит разрешение.
 
@@ -205,6 +204,8 @@ MCP-сервер отдаёт чату фиксированный набор и�
 - Autodesk Revit 2021 / 2022 / 2023 / 2024 / 2025
 - Windows 10/11 x64
 - [.NET SDK 8.0](https://dotnet.microsoft.com/download) — только для сборки из исходников.
+- .NET 8 Runtime — для MCP-сервера. Входит в Revit 2025; для Revit 2021–2024
+  при использовании MCP его нужно установить отдельно.
 
 ## Сборка
 
@@ -218,7 +219,7 @@ dotnet build build\AssemblingManager.sln -c Debug.R21
 
 Скрипт `build-and-deploy.bat` собирает все версии и устанавливает их в Revit (DLL в `%APPDATA%\AssemblingManager\<Год>\`, манифесты `.addin` в `%APPDATA%\Autodesk\Revit\Addins\<Год>\`). Установленные версии Revit, отсутствующие на машине, пропускаются.
 
-Выпуск релиза: запустите `tools\release.bat` (нужны [GitHub CLI](https://cli.github.com/) с авторизацией и [Inno Setup 6](https://jrsoftware.org/isinfo.php)) — он соберёт все конфигурации, упакует zip-архивы и инсталлятор, опубликует GitHub Release по версии из `Version.txt`.
+Выпуск релиза: запустите `tools\release.bat` (нужны [GitHub CLI](https://cli.github.com/) с авторизацией и [Inno Setup 6](https://jrsoftware.org/isinfo.php)) — он соберёт все конфигурации, опубликует MCP-сервер отдельным архивом `AssemblingManager-McpServer.zip`, упакует zip-архивы и инсталлятор, затем опубликует GitHub Release по версии из `Version.txt`. Инсталлятор ставит MCP-сервер в `{app}\McpServer`.
 
 ## Структура проекта
 
