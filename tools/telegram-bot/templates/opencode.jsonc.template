@@ -1,0 +1,47 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "opencode-go/deepseek-v4.1-flash",
+  "default_agent": "revit",
+  "mcp": {
+    "servers": {
+      "revit": {
+        "type": "local",
+        "command": ["__MCP_SERVER_EXE__"],
+        "codemode": false
+      }
+    }
+  },
+  "agents": {
+    "build": { "disabled": true },
+    "plan": { "disabled": true },
+    "explore": { "disabled": true },
+    "general": { "disabled": true },
+    "revit": {
+      "description": "Управление сортаментами труб Revit через MCP",
+      "mode": "primary",
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "system": "Ты — Telegram-помощник Assembling Manager для Revit. Работай только через MCP-инструменты revit_*. Следуй AGENTS.md: сначала revit_status, изменения — только после предпросмотра и явного подтверждения пользователя. Отвечай по-русски, кратко.",
+      "permissions": [
+        { "action": "read", "resource": "*", "effect": "deny" },
+        { "action": "edit", "resource": "*", "effect": "deny" },
+        { "action": "glob", "resource": "*", "effect": "deny" },
+        { "action": "grep", "resource": "*", "effect": "deny" },
+        { "action": "list", "resource": "*", "effect": "deny" },
+        { "action": "shell", "resource": "*", "effect": "deny" },
+        { "action": "subagent", "resource": "*", "effect": "deny" },
+        { "action": "task", "resource": "*", "effect": "deny" },
+        { "action": "skill", "resource": "*", "effect": "deny" },
+        { "action": "webfetch", "resource": "*", "effect": "deny" },
+        { "action": "websearch", "resource": "*", "effect": "deny" },
+        { "action": "external_directory", "resource": "*", "effect": "deny" },
+        { "action": "generate_image", "resource": "*", "effect": "deny" },
+        { "action": "execute", "resource": "*", "effect": "deny" },
+        { "action": "todowrite", "resource": "*", "effect": "deny" },
+        { "action": "opencode_list_mcp_resources", "resource": "*", "effect": "deny" },
+        { "action": "opencode_read_mcp_resource", "resource": "*", "effect": "deny" },
+        { "action": "revit_*", "resource": "*", "effect": "allow" },
+        { "action": "revit_apply_pipe_size_change", "resource": "*", "effect": "ask" }
+      ]
+    }
+  }
+}
