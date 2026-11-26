@@ -1,7 +1,7 @@
 # Telegram-управление Revit через MCP
 
 Статус: **future**, не начато. Основа — уже работающий MCP-мост Assembling Manager
-и MCP-сервер `revit`. Текущий план MCP: `docs/in-progress/mcp-sortaments.md`.
+и MCP-сервер `revit`. Реализованный план MCP: `docs/realized/mcp-sortaments.md`.
 
 ## Цель
 

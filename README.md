@@ -175,7 +175,7 @@ MCP-сервер отдаёт чату фиксированный набор и�
 используется трубами, нельзя.
 
 План и чек-лист:
-[`DOCS/in-progress/mcp-sortaments.md`](DOCS/in-progress/mcp-sortaments.md).
+[`DOCS/realized/mcp-sortaments.md`](DOCS/realized/mcp-sortaments.md).
 
 ### Быстрый старт
 
